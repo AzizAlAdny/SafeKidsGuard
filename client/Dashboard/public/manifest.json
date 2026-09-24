@@ -1,0 +1,18 @@
+{
+  "name": "Safe Kids Guard - حارس الأطفال الآمن",
+  "short_name": "SafeKidsGuard",
+  "description": "نظام حماية ومراقبة الأطفال المدعوم بالذكاء الاصطناعي - لوحة تحكم ولي الأمر",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#041B2F",
+  "theme_color": "#1BC3E4",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

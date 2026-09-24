@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── From pallte_taiwindv4.md (full scales) ── */
+  --color-blue-green-50:       #e8f9fc;
+  --color-blue-green-100:      #d1f3fa;
+  --color-blue-green-200:      #a4e7f4;
+  --color-blue-green-300:      #76dbef;
+  --color-blue-green-400:      #48cfea;
+  --color-blue-green-500:      #1bc3e4;  /* ≈ Logo #0AC7E3 — shield cyan */
+  --color-blue-green-600:      #159cb7;  /* ≈ Logo #06B0B7 — "Guard" text */
+  --color-blue-green-700:      #107589;
+  --color-blue-green-800:      #0b4e5b;
+  --color-blue-green-900:      #05272e;
+  --color-blue-green-950:      #041b20;
+
+  --color-yale-blue-50:        #e7f3fd;
+  --color-yale-blue-100:       #d0e7fb;
+  --color-yale-blue-200:       #a0cff8;
+  --color-yale-blue-300:       #71b7f4;
+  --color-yale-blue-400:       #419ff1;
+  --color-yale-blue-500:       #1287ed;
+  --color-yale-blue-600:       #0e6cbe;
+  --color-yale-blue-700:       #0b518e;  /* ≈ Logo #125DA0 — shield body */
+  --color-yale-blue-800:       #07365f;  /* ≈ Logo #0B264D — "Safe Kids" navy */
+  --color-yale-blue-900:       #041b2f;  /* Dark mode page background */
+  --color-yale-blue-950:       #021321;
+
+  --color-thistle-50:          #f1eef6;
+  --color-thistle-100:         #e3ddee;
+  --color-thistle-200:         #c8bbdd;
+  --color-thistle-300:         #ac99cc;
+  --color-thistle-400:         #9077bb;
+  --color-thistle-500:         #7455aa;  /* ≈ Logo #6847C7 — violet accent */
+  --color-thistle-600:         #5d4488;
+  --color-thistle-700:         #463366;
+  --color-thistle-800:         #2f2244;
+  --color-thistle-900:         #171122;
+  --color-thistle-950:         #100c18;
+
+  --color-prussian-blue-50:    #e6f1fe;
+  --color-prussian-blue-100:   #cde2fe;
+  --color-prussian-blue-200:   #9cc6fc;
+  --color-prussian-blue-300:   #6aa9fb;
+  --color-prussian-blue-400:   #388cfa;
+  --color-prussian-blue-500:   #066ff9;
+  --color-prussian-blue-600:   #0559c7;
+  --color-prussian-blue-700:   #044395;
+  --color-prussian-blue-800:   #032d63;  /* Dark surface background */
+  --color-prussian-blue-900:   #011632;
+  --color-prussian-blue-950:   #011023;
+
+  --color-alice-blue-50:       #edf5f8;
+  --color-alice-blue-100:      #daebf1;
+  --color-alice-blue-200:      #b5d7e3;  /* Light border */
+  --color-alice-blue-300:      #90c3d5;
+  --color-alice-blue-400:      #6baec7;
+  --color-alice-blue-500:      #469ab9;
+  --color-alice-blue-600:      #387b94;  /* Muted text */
+  --color-alice-blue-700:      #2a5d6f;
+  --color-alice-blue-800:      #1c3e4a;
+  --color-alice-blue-900:      #0e1f25;
+  --color-alice-blue-950:      #0a161a;
+
+  /* ── Emerald Green (Logo checkmark) ── */
+  --color-emerald-50:          #eaf9ef;
+  --color-emerald-100:         #c6eed1;
+  --color-emerald-200:         #8edda5;
+  --color-emerald-300:         #56cb79;
+  --color-emerald-400:         #3bc562;
+  --color-emerald-500:         #2abe50;  /* Logo exact: #2ABE50 */
+  --color-emerald-600:         #228f3c;
+  --color-emerald-700:         #1a6f2f;
+  --color-emerald-800:         #114a1f;
+  --color-emerald-900:         #092510;
+  --color-emerald-950:         #051a0b;
+
+  /* ── Semantic fixed colors ── */
+  --color-danger:              #e33a0a;
+  --color-warning:             #f0a83d;
+
+  /* ── Typography ── */
+  --font-arabic:               'Cairo', 'Tajawal', sans-serif;
+  --font-latin:                'Inter', system-ui, sans-serif;
+  --font-mono:                 'JetBrains Mono', monospace;
+
+  /* ── Border radius ── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-card: 16px;
+}
+
+:root {
+  --bg-page: #f0fafc;
+  --bg-surface: #ffffff;
+  --border-light: #c8eef4;
+  --text-primary: #07365f;
+  --text-secondary: #387b94;
+}
+
+.dark {
+  --bg-page: #041b2f;
+  --bg-surface: #032d63;
+  --border-light: #107589;
+  --text-primary: #e8f9fc;
+  --text-secondary: #90c3d5;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-arabic);
+}
+
+/* Gradients */
+.gradient-primary {
+  background: linear-gradient(135deg, #1bc3e4 0%, #0b518e 100%);
+}
+
+.gradient-hero {
+  background: linear-gradient(135deg, #07365f 0%, #0b518e 40%, #1bc3e4 100%);
+}
+
+.gradient-cta {
+  background: linear-gradient(90deg, #159cb7 0%, #1bc3e4 100%);
+}
+
+.gradient-safe {
+  background: linear-gradient(90deg, #2abe50 0%, #1bc3e4 100%);
+}
+
+.gradient-danger {
+  background: linear-gradient(90deg, #e33a0a 0%, #f0a83d 100%);
+}
+
+.gradient-glass {
+  background: linear-gradient(135deg, rgba(27, 195, 228, 0.15) 0%, rgba(72, 207, 234, 0.08) 100%);
+}
