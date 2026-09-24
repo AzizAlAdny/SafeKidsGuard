@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import engine
 from app.auth.router import router as auth_router
 from app.content_filter.router import router as content_filter_router
+from app.alerts.router import router as alerts_router
 from app.ai_engine.model import load_models
 from app.core.redis import init_redis, close_redis
 
@@ -46,6 +47,7 @@ app.add_middleware(
 # ── Routers ──────────────────────────────────────────────
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(content_filter_router, tags=["Content Moderation & Alerts"])
+app.include_router(alerts_router)
 
 
 @app.get("/health", tags=["Health"])

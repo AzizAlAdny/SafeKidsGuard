@@ -48,7 +48,7 @@ class NotificationPreferences(Base):
     whatsapp_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     whatsapp_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     web_push_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    web_push_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    web_push_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
