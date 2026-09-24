@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine
 from app.auth.router import router as auth_router
+from app.content_filter.router import router as content_filter_router
 from app.ai_engine.model import load_models
 from app.core.redis import init_redis, close_redis
 
@@ -44,11 +45,7 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-
-# TODO (Phase 2): include ai_engine router
-# TODO (Phase 3): include content_filter, activity, alerts routers
-# TODO (Phase 4): include policies, reports routers
-# TODO (Phase 5): include admin router
+app.include_router(content_filter_router, tags=["Content Moderation & Alerts"])
 
 
 @app.get("/health", tags=["Health"])
