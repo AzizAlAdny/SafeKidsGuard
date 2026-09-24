@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
 }
 
@@ -57,6 +58,7 @@ dependencies {
 
     // DI - Hilt
     implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     // Network - Retrofit + OkHttp
     implementation(libs.retrofit)
@@ -66,6 +68,7 @@ dependencies {
     // Local DB - Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     // Background Tasks
     implementation(libs.work.runtime.ktx)
