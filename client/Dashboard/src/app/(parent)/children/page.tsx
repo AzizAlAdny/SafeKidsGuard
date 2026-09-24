@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Users,
   Plus,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function ChildrenPage() {
   const [childrenList, setChildrenList] = useState([
@@ -45,6 +46,31 @@ export default function ChildrenPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadChildren() {
+      try {
+        const res = await api.get("/auth/children");
+        const list = res.data?.children || [];
+        if (list.length > 0) {
+          setChildrenList(
+            list.map((c: any, index: number) => ({
+              id: c.id,
+              name: c.full_name,
+              nickname: c.full_name.split(" ")[0] || c.full_name,
+              email: c.email,
+              device: "Android Smartphone",
+              pairingCode: `${500 + index * 37}-${100 + index * 41}`,
+              status: "متصل ومحمي",
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Failed to load children from server:", err);
+      }
+    }
+    loadChildren();
+  }, []);
 
   const handleAddChild = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +106,7 @@ export default function ChildrenPage() {
       setEmail("");
       setPassword("");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "حدث خطأ في إضافة حساب الطفل");
+      setError(extractErrorMessage(err, "حدث خطأ في إضافة حساب الطفل"));
     } finally {
       setLoading(false);
     }
@@ -202,17 +228,20 @@ export default function ChildrenPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="child@family.local"
+                  placeholder="child@gmail.com"
                   dir="ltr"
                   className="w-full px-3 py-2 rounded-xl border border-[#b5d7e3] text-sm text-[#07365f] outline-none focus:border-[#1bc3e4]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#07365f] mb-1 text-right">كلمة المرور المؤقتة</label>
+                <label className="block text-xs font-bold text-[#07365f] mb-1 text-right">
+                  كلمة المرور المؤقتة للطفل <span className="text-gray-400 font-normal">(6 خانات على الأقل)</span>
+                </label>
                 <input
                   type="password"
                   required
+                  minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"

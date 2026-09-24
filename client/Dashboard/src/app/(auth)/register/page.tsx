@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Shield, Lock, Mail, User, Phone, ArrowLeft, Loader2, AlertCircle, MessageCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -57,11 +58,11 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (err: any) {
       if (err.response?.status === 400) {
-        setError(err.response?.data?.detail || "البريد الإلكتروني مسجل بالفعل مسبقاً");
+        setError(extractErrorMessage(err, "البريد الإلكتروني مسجل بالفعل مسبقاً"));
       } else if (err.response?.status === 422) {
-        setError("بيانات الإدخال غير صالحة. يرجى التأكد من صحة رقم الهاتف والبريد.");
+        setError(extractErrorMessage(err, "بيانات الإدخال غير صالحة. يرجى التأكد من صحة رقم الهاتف والبريد."));
       } else {
-        setError("حدث خطأ في إنشاء الحساب. يرجى المحاولة لاحقاً.");
+        setError(extractErrorMessage(err, "حدث خطأ في إنشاء الحساب. يرجى المحاولة لاحقاً."));
       }
     } finally {
       setLoading(false);

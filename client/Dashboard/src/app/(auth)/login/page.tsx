@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Shield, Lock, Mail, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function LoginPage() {
       if (err.response?.status === 401) {
         setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
       } else {
-        setError(err.response?.data?.detail || "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+        setError(extractErrorMessage(err, "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى."));
       }
     } finally {
       setLoading(false);

@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 interface Child {
   id: string;
@@ -169,7 +170,7 @@ export default function PoliciesPage() {
     } catch (err: any) {
       setMessage({
         type: "error",
-        text: err.response?.data?.detail || "فشل حفظ السياسة، يرجى المحاولة مرة أخرى",
+        text: extractErrorMessage(err, "فشل حفظ السياسة، يرجى المحاولة مرة أخرى"),
       });
     } finally {
       setSaving(false);

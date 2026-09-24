@@ -46,7 +46,7 @@ class RefreshRequest(BaseModel):
 
 class CreateChildRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=6, max_length=128)
     full_name: str = Field(min_length=2, max_length=255)
     nickname: str | None = None
 
