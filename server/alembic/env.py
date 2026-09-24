@@ -12,6 +12,8 @@ from app.core.database import Base
 from app.core.config import settings
 import app.auth.models  # noqa: F401 — registers User, Family, etc.
 import app.content_filter.models  # noqa: F401 — registers Alert
+import app.policies.models  # noqa: F401 — registers Policy
+import app.activity.models  # noqa: F401 — registers ActivityEvent
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

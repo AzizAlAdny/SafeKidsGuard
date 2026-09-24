@@ -37,76 +37,122 @@ async def classify_and_handle(
         # Step 3: Populate Cache (24h TTL)
         await set_cached_classification(redis_client, data.text, result)
 
-    is_blocked = result.get("is_blocked", False)
+    category = result["category"]
+    confidence = result["confidence"]
+    raw_is_blocked = result.get("is_blocked", False)
 
-    # Step 4: If content is blocked/unsafe, handle Alert & WhatsApp Dispatch
-    if is_blocked:
+    # Convert child_id to UUID if provided
+    child_uuid = None
+    if data.child_id:
         try:
             child_uuid = uuid.UUID(data.child_id) if isinstance(data.child_id, str) else data.child_id
         except ValueError:
             logger.error("Invalid child_id: %s", data.child_id)
-            child_uuid = None
 
-        if child_uuid:
-            # Find the parent via Family relationship
-            fm_result = await db.execute(
-                select(FamilyMember, Family)
-                .join(Family, FamilyMember.family_id == Family.id)
-                .where(FamilyMember.child_id == child_uuid)
+    # Step 4: Consult Child Policy (if child_uuid is valid)
+    is_blocked = raw_is_blocked
+    policy = None
+    if child_uuid:
+        from app.policies.models import Policy
+        p_res = await db.execute(select(Policy).where(Policy.child_id == child_uuid))
+        policy = p_res.scalar_one_or_none()
+
+        if policy:
+            # Check blocked apps
+            if data.context_app and data.context_app in (policy.blocked_apps or []):
+                is_blocked = True
+
+            # If AI flagged content, verify against policy category toggles & sensitivity
+            if raw_is_blocked:
+                # Check confidence threshold
+                if confidence < policy.sensitivity_threshold:
+                    is_blocked = False
+
+                # Check category specific toggles
+                if category == "VIOLENCE" and not policy.block_violence:
+                    is_blocked = False
+                elif category == "SEXUAL" and not policy.block_sexual:
+                    is_blocked = False
+                elif category == "CYBERBULLYING" and not policy.block_cyberbullying:
+                    is_blocked = False
+                elif category == "HATE_SPEECH" and not policy.block_hate_speech:
+                    is_blocked = False
+
+    # Step 5: Log Activity Event
+    if child_uuid:
+        from app.activity.models import ActivityEvent
+        activity = ActivityEvent(
+            child_id=child_uuid,
+            app_name=data.context_app,
+            url=None,
+            content_snippet=data.text[:200],
+            category=category,
+            confidence=confidence,
+            verdict="BLOCKED" if is_blocked else "ALLOWED",
+        )
+        db.add(activity)
+
+    # Step 6: If content is blocked/unsafe, handle Alert & WhatsApp Dispatch
+    if is_blocked and child_uuid:
+        # Find the parent via Family relationship
+        fm_result = await db.execute(
+            select(FamilyMember, Family)
+            .join(Family, FamilyMember.family_id == Family.id)
+            .where(FamilyMember.child_id == child_uuid)
+        )
+        row = fm_result.first()
+
+        if row:
+            _, family = row
+            parent_id = family.parent_id
+
+            # Fetch parent details and notification preferences
+            parent_result = await db.execute(
+                select(User, NotificationPreferences)
+                .outerjoin(NotificationPreferences, User.id == NotificationPreferences.user_id)
+                .where(User.id == parent_id)
             )
-            row = fm_result.first()
+            parent_row = parent_result.first()
 
-            if row:
-                _, family = row
-                parent_id = family.parent_id
+            child_user = await db.get(User, child_uuid)
+            child_name = child_user.full_name if child_user else "الطفل"
 
-                # Fetch parent details and notification preferences
-                parent_result = await db.execute(
-                    select(User, NotificationPreferences)
-                    .outerjoin(NotificationPreferences, User.id == NotificationPreferences.user_id)
-                    .where(User.id == parent_id)
-                )
-                parent_row = parent_result.first()
+            # Create Alert record
+            alert = Alert(
+                child_id=child_uuid,
+                parent_id=parent_id,
+                content_snippet=data.text[:200],  # Masked/capped snippet
+                category=category,
+                confidence=confidence,
+                verdict="BLOCKED",
+                context_app=data.context_app,
+                whatsapp_sent=False,
+                web_push_sent=False,
+            )
+            db.add(alert)
+            await db.flush()
 
-                child_user = await db.get(User, child_uuid)
-                child_name = child_user.full_name if child_user else "الطفل"
+            # Trigger WhatsApp Notification if parent configured
+            if parent_row:
+                _, prefs = parent_row
+                if prefs and prefs.whatsapp_enabled and prefs.whatsapp_phone:
+                    logger.info("Dispatching WhatsApp alert to %s for child %s", prefs.whatsapp_phone, child_name)
+                    wa_success = await send_whatsapp_alert(
+                        parent_phone=prefs.whatsapp_phone,
+                        category=category,
+                        child_name=child_name,
+                        confidence=confidence,
+                    )
+                    if wa_success:
+                        alert.whatsapp_sent = True
 
-                # Create Alert record
-                alert = Alert(
-                    child_id=child_uuid,
-                    parent_id=parent_id,
-                    content_snippet=data.text[:200],  # Masked/capped snippet
-                    category=result["category"],
-                    confidence=result["confidence"],
-                    verdict="BLOCKED",
-                    context_app=data.context_app,
-                    whatsapp_sent=False,
-                    web_push_sent=False,
-                )
-                db.add(alert)
-                await db.flush()
-
-                # Trigger WhatsApp Notification if parent configured
-                if parent_row:
-                    _, prefs = parent_row
-                    if prefs and prefs.whatsapp_enabled and prefs.whatsapp_phone:
-                        logger.info("Dispatching WhatsApp alert to %s for child %s", prefs.whatsapp_phone, child_name)
-                        wa_success = await send_whatsapp_alert(
-                            parent_phone=prefs.whatsapp_phone,
-                            category=result["category"],
-                            child_name=child_name,
-                            confidence=result["confidence"],
-                        )
-                        if wa_success:
-                            alert.whatsapp_sent = True
-
-                await db.commit()
+    await db.commit()
 
     return PredictResponse(
-        verdict=result["verdict"],
-        category=result["category"],
-        confidence=result["confidence"],
-        is_blocked=result["is_blocked"],
+        verdict="BLOCKED" if is_blocked else "ALLOWED",
+        category=category,
+        confidence=confidence,
+        is_blocked=is_blocked,
         execution_time_ms=result.get("execution_time_ms", 0.0),
         cached=cached,
     )
