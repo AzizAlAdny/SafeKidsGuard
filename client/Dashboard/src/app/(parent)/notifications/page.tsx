@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MessageCircle,
   Bell,
@@ -13,41 +13,80 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 
 export default function NotificationsPage() {
   const { user } = useAuthStore();
 
-  const [whatsappPhone, setWhatsappPhone] = useState("966501234567");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [webPushEnabled, setWebPushEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingWa, setTestingWa] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    async function loadPreferences() {
+      try {
+        const res = await api.get("/notifications/preferences");
+        if (res.data) {
+          setWhatsappPhone(res.data.whatsapp_phone || "");
+          setWhatsappEnabled(res.data.whatsapp_enabled ?? true);
+          setWebPushEnabled(res.data.web_push_enabled ?? false);
+        }
+      } catch (err: any) {
+        console.error("Failed to load preferences:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPreferences();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
 
-    // Mock API call to update notification preferences
-    setTimeout(() => {
+    try {
+      const res = await api.put("/notifications/preferences", {
+        whatsapp_phone: whatsappPhone.trim() || null,
+        whatsapp_enabled: whatsappEnabled,
+        web_push_enabled: webPushEnabled,
+      });
+      if (res.data) {
+        setWhatsappPhone(res.data.whatsapp_phone || "");
+        setMessage({ type: "success", text: "تم حفظ تفضيلات الإشعارات بنجاح!" });
+      }
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : "فشل حفظ التفضيلات، يرجى التأكد من صحة رقم الهاتف";
+      setMessage({ type: "error", text: msg });
+    } finally {
       setSaving(false);
-      setMessage({ type: "success", text: "تم حفظ تفضيلات الإشعارات بنجاح!" });
-    }, 600);
+    }
   };
 
   const handleTestWhatsApp = async () => {
     setTestingWa(true);
     setMessage(null);
 
-    // Mock sending test WhatsApp message via Meta Cloud API
-    setTimeout(() => {
-      setTestingWa(false);
+    try {
+      const res = await api.post("/notifications/test-whatsapp", {
+        phone: whatsappPhone.trim() || undefined,
+      });
       setMessage({
         type: "success",
-        text: `تم إرسال رسالة تجريبية بنجاح إلى الرقم +${whatsappPhone} عبر WhatsApp Business API`,
+        text: res.data?.message || `تم إرسال رسالة تجريبية بنجاح عبر WhatsApp Business API`,
       });
-    }, 1200);
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : "فشل إرسال رسالة الواتساب التجريبية";
+      setMessage({ type: "error", text: msg });
+    } finally {
+      setTestingWa(false);
+    }
   };
 
   return (
