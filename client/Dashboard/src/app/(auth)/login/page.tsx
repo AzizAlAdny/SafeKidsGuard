@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Shield, Lock, Mail, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
@@ -42,8 +43,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1bc3e4] to-[#0b518e] flex items-center justify-center shadow-lg shadow-[#1bc3e4]/30 mb-3">
-            <Shield className="w-9 h-9 text-white" />
+          <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-xl shadow-[#1bc3e4]/30 mb-4 bg-white p-1 border border-white/40">
+            <Image
+              src="/logo.jpeg"
+              alt="Safe Kids Guard Logo"
+              width={80}
+              height={80}
+              className="object-cover rounded-xl w-full h-full"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-[#07365f]">Safe Kids Guard</h1>
           <p className="text-sm text-[#387b94] mt-1 font-medium">لوحة تحكم ولي الأمر الآمنة</p>

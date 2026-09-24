@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,12 +17,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dagger.hilt.android.AndroidEntryPoint
+import sa.safekids.guard.R
 import sa.safekids.guard.ui.theme.*
 
 @AndroidEntryPoint
@@ -64,20 +69,15 @@ fun ChildAppHomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // App Icon & Shield
-        Box(
+        // App Official Brand Logo
+        Image(
+            painter = painterResource(id = R.drawable.ic_logo),
+            contentDescription = "Safe Kids Guard Official Logo",
             modifier = Modifier
-                .size(80.dp)
-                .background(BlueGreen500, shape = RoundedCornerShape(24.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Security,
-                contentDescription = "Shield",
-                tint = Color.White,
-                modifier = Modifier.size(48.dp)
-            )
-        }
+                .size(92.dp)
+                .clip(RoundedCornerShape(22.dp)),
+            contentScale = ContentScale.Fit
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 

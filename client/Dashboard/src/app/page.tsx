@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Shield, Lock, Bell, MessageCircle, ArrowLeft, Cpu } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
@@ -22,8 +23,15 @@ export default function HomePage() {
       {/* Top Navbar */}
       <header className="p-6 max-w-7xl mx-auto w-full flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#1bc3e4] to-[#0b518e] flex items-center justify-center shadow-lg shadow-[#1bc3e4]/30">
-            <Shield className="w-7 h-7 text-white" />
+          <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-lg shadow-[#1bc3e4]/30 bg-white p-0.5 border border-white/30 flex-shrink-0">
+            <Image
+              src="/logo.jpeg"
+              alt="Safe Kids Guard Logo"
+              width={48}
+              height={48}
+              className="object-cover rounded-xl w-full h-full"
+              priority
+            />
           </div>
           <div>
             <h1 className="font-bold text-xl tracking-wide">Safe Kids Guard</h1>

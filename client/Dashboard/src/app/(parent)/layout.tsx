@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Shield,
@@ -49,8 +50,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
       <aside className="hidden md:flex flex-col w-72 bg-[#07365f] text-white border-l border-white/10 shadow-xl">
         {/* Brand */}
         <div className="p-6 border-b border-white/10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#1bc3e4] to-[#0b518e] flex items-center justify-center shadow-md shadow-[#1bc3e4]/30">
-            <Shield className="w-6 h-6 text-white" />
+          <div className="relative w-11 h-11 rounded-xl overflow-hidden shadow-md shadow-[#1bc3e4]/30 flex-shrink-0 bg-white p-0.5">
+            <Image
+              src="/logo.jpeg"
+              alt="Safe Kids Guard Logo"
+              width={44}
+              height={44}
+              className="object-cover rounded-lg w-full h-full"
+            />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight tracking-wide">Safe Kids Guard</h1>
@@ -103,8 +110,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3.5 bg-[#07365f] text-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#1bc3e4] flex items-center justify-center">
-              <Shield className="w-5 h-5 text-[#07365f]" />
+            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5">
+              <Image
+                src="/logo.jpeg"
+                alt="Safe Kids Guard Logo"
+                width={32}
+                height={32}
+                className="object-cover rounded-md w-full h-full"
+              />
             </div>
             <span className="font-bold text-sm">Safe Kids Guard</span>
           </div>
