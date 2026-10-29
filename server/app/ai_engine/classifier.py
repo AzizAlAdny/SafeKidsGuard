@@ -1,14 +1,16 @@
 """
 Dual-Model Content Moderation Classifier for Safe Kids Guard.
 Combines AraBERT v2 (MSA) and CAMeLBERT (Dialectal Arabic) with
-fast-path safety checks and confidence-based arbitration.
+fast-path safety checks, non-blocking asyncio thread execution, and confidence-based arbitration.
 """
+import asyncio
 import logging
 import re
 import time
 from typing import Any
 
 from app.core.config import settings
+from app.ai_engine.model import get_arabert, get_camelbert, is_models_loaded
 from app.ai_engine.preprocessing import preprocess_arabic
 
 logger = logging.getLogger(__name__)
@@ -85,10 +87,15 @@ def check_rule_based_safety(normalized_text: str) -> tuple[str, float] | None:
     return None
 
 
+def _sync_pipeline_predict(pipeline: Any, text: str) -> list[dict[str, Any]]:
+    """Execute blocking HuggingFace pipeline in thread pool."""
+    return pipeline(text[:512], truncation=True)
+
+
 async def classify_text(raw_text: str) -> dict[str, Any]:
     """
     Classify Arabic text through the dual-model moderation engine.
-    Returns verdict, category, confidence score, and processing metrics.
+    Applies fast-path heuristics followed by asynchronous AraBERT/CAMeLBERT inference.
     """
     start_time = time.perf_counter()
 
@@ -102,10 +109,11 @@ async def classify_text(raw_text: str) -> dict[str, Any]:
             "confidence": 1.0,
             "is_blocked": False,
             "normalized_text": "",
+            "model_used": "preprocessor",
             "execution_time_ms": round(elapsed, 2),
         }
 
-    # Step 2: Check fast-path rules
+    # Step 2: Check fast-path rules (ultra-fast < 2ms)
     rule_match = check_rule_based_safety(normalized)
     if rule_match:
         category, confidence = rule_match
@@ -122,14 +130,37 @@ async def classify_text(raw_text: str) -> dict[str, Any]:
         }
 
     # Step 3: Dual BERT Model Classification
-    # In full deployment: AraBERT v2 + CAMeLBERT
     dialect = is_dialectal(normalized)
+    active_pipeline = get_camelbert() if dialect else get_arabert()
     model_name = "CAMeLBERT-Dialectal" if dialect else "AraBERTv2-MSA"
 
-    # Default baseline for neutral / safe text
     category = CATEGORY_SAFE
     confidence = 0.98
     is_blocked = False
+
+    # If neural pipeline is loaded, execute non-blocking inference
+    if active_pipeline is not None:
+        try:
+            preds = await asyncio.to_thread(_sync_pipeline_predict, active_pipeline, normalized)
+            if preds and isinstance(preds, list) and len(preds) > 0:
+                top_pred = preds[0]
+                label = top_pred.get("label", "").upper()
+                score = float(top_pred.get("score", 0.5))
+
+                # Normalize label to standard categories if recognized
+                if label in CATEGORIES:
+                    category = label
+                    confidence = score
+                elif "TOXIC" in label or "HATE" in label:
+                    category = CATEGORY_HATE_SPEECH
+                    confidence = score
+                elif "BULLY" in label:
+                    category = CATEGORY_CYBERBULLYING
+                    confidence = score
+
+                is_blocked = (category != CATEGORY_SAFE) and (confidence >= settings.AI_CONFIDENCE_THRESHOLD)
+        except Exception as exc:
+            logger.warning(f"Neural model inference error: {exc}. Using fallback baseline.")
 
     elapsed = (time.perf_counter() - start_time) * 1000
 

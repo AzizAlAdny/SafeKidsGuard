@@ -1,11 +1,12 @@
 """
 Auth routes: /auth/register, /auth/login, /auth/refresh, /auth/me, /auth/children
 """
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
+from app.core.limiter import limiter
 from app.auth import service
 from app.auth.models import User
 from app.auth.schemas import (
@@ -21,7 +22,8 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("15/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """
     Register a new parent account.
     - Creates user, notification preferences (WhatsApp phone), and family record.
@@ -31,7 +33,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate with email + password. Returns JWT token pair."""
     return await service.login(db, data)
 
@@ -64,3 +67,16 @@ async def create_child(
     Only parents can call this endpoint.
     """
     return await service.create_child_account(db, data, current_user)
+
+
+@router.get(
+    "/children",
+    response_model=dict,
+    dependencies=[Depends(require_role("parent", "admin"))],
+)
+async def list_children(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve all children linked to the authenticated parent."""
+    return await service.get_parent_children(db, current_user)

@@ -8,10 +8,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dagger.hilt.android.AndroidEntryPoint
 import sa.safekids.guard.R
+import sa.safekids.guard.data.SessionManager
 import sa.safekids.guard.ui.theme.*
 
 @AndroidEntryPoint
@@ -59,12 +65,18 @@ fun ChildAppHomeScreen(
     onOpenAccessibilitySettings: () -> Unit,
     onOpenUsageSettings: () -> Unit
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+
     var pairingPin by remember { mutableStateOf("") }
-    var isPaired by remember { mutableStateOf(false) }
+    var isPaired by remember { mutableStateOf(sessionManager.isPaired) }
+    var serverUrl by remember { mutableStateOf(sessionManager.baseUrl) }
+    var showServerConfig by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -94,7 +106,7 @@ fun ChildAppHomeScreen(
             fontSize = 13.sp,
             color = AliceBlue600,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp, bottom = 28.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
         )
 
         if (!isPaired) {
@@ -135,7 +147,16 @@ fun ChildAppHomeScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = { if (pairingPin.isNotEmpty()) isPaired = true },
+                        onClick = {
+                            if (pairingPin.isNotEmpty()) {
+                                sessionManager.saveSession(
+                                    childId = "00000000-0000-0000-0000-000000000001",
+                                    childName = "جهاز الطفل",
+                                    accessToken = "mock_child_token"
+                                )
+                                isPaired = true
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = BlueGreen500),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -169,16 +190,22 @@ fun ChildAppHomeScreen(
                         color = Color(0xFF1A6F2F)
                     )
                     Text(
-                        text = "الجهاز مقترن بنجاح مع حساب ولي الأمر ويتم فحص المحتوى بالذكاء الاصطناعي لحماية طفلك.",
+                        text = "الجهاز مقترن بنجاح ويتم فحص النصوص بالذكاء الاصطناعي (مع تقنية منع التكرار 2 ثوانٍ) لحماية طفلك.",
                         fontSize = 12.sp,
                         color = YaleBlue800,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+                    Text(
+                        text = "الخادم: ${sessionManager.baseUrl}",
+                        fontSize = 11.sp,
+                        color = AliceBlue600,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Permissions Buttons
             OutlinedButton(
@@ -197,6 +224,65 @@ fun ChildAppHomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("إذن إحصائيات استخدام التطبيقات")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            TextButton(
+                onClick = {
+                    sessionManager.clearSession()
+                    isPaired = false
+                }
+            ) {
+                Text("إلغاء الاقتران / إعادة التعيين", color = DangerRed)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Advanced Server Connection Settings
+        TextButton(
+            onClick = { showServerConfig = !showServerConfig }
+        ) {
+            Text(
+                text = if (showServerConfig) "إخفاء إعدادات اتصال الخادم" else "إعدادات اتصال الخادم (للمطورين)",
+                fontSize = 12.sp,
+                color = BlueGreen500
+            )
+        }
+
+        if (showServerConfig) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "عنوان خادم Safe Kids Guard API:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = YaleBlue800
+                    )
+                    Text(
+                        text = "محاكي أندرويد: http://10.0.2.2:8000/\nجهاز حقيقي: عنوان الـ IP المحلي لجهازك",
+                        fontSize = 11.sp,
+                        color = AliceBlue600,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = serverUrl,
+                        onValueChange = {
+                            serverUrl = it
+                            sessionManager.baseUrl = it
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
             }
         }
     }

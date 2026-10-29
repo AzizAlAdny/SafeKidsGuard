@@ -3,11 +3,15 @@ Safe Kids Guard — FastAPI Application Entry Point
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
+from app.core.limiter import limiter
 from app.auth.router import router as auth_router
 from app.content_filter.router import router as content_filter_router
 from app.alerts.router import router as alerts_router
@@ -38,6 +42,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Rate Limiting (SlowAPI) ──────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # ── CORS ─────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -47,13 +56,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routers ──────────────────────────────────────────────
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(content_filter_router, tags=["Content Moderation & Alerts"])
-app.include_router(alerts_router)
-app.include_router(policies_router)
-app.include_router(activity_router)
-app.include_router(reports_router)
+# ── Standard API v1 Router ───────────────────────────────
+api_v1_router = APIRouter(prefix="/api/v1")
+api_v1_router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+api_v1_router.include_router(content_filter_router, tags=["Content Moderation & Alerts"])
+api_v1_router.include_router(alerts_router)
+api_v1_router.include_router(policies_router)
+api_v1_router.include_router(activity_router)
+api_v1_router.include_router(reports_router)
+
+app.include_router(api_v1_router)
+
+# ── Root Backward-Compatibility Aliases ──────────────────
+app.include_router(auth_router, prefix="/auth", include_in_schema=False)
+app.include_router(content_filter_router, include_in_schema=False)
+app.include_router(alerts_router, include_in_schema=False)
+app.include_router(policies_router, include_in_schema=False)
+app.include_router(activity_router, include_in_schema=False)
+app.include_router(reports_router, include_in_schema=False)
 
 
 @app.get("/health", tags=["Health"])

@@ -2,12 +2,14 @@
 Content Moderation & Alerts Router.
 Endpoints for real-time text prediction and alert history retrieval.
 """
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
 
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
+from app.core.limiter import limiter
 from app.core.redis import get_redis
 from app.content_filter import service
 from app.content_filter.schemas import AlertResponse, PredictRequest, PredictResponse
@@ -21,7 +23,9 @@ router = APIRouter(tags=["Content Moderation"])
     status_code=status.HTTP_200_OK,
     summary="Real-time text content moderation (called by child app)",
 )
+@limiter.limit("120/minute")
 async def predict_content(
+    request: Request,
     data: PredictRequest,
     db: AsyncSession = Depends(get_db),
     redis_client=Depends(get_redis),
@@ -30,6 +34,15 @@ async def predict_content(
     Classify Arabic text snippet using AraBERT v2 + CAMeLBERT dual-model engine.
     Applies Redis caching (SHA-256) and triggers automated WhatsApp alert if threat detected.
     """
+    # Security: Validate child_id UUID integrity
+    try:
+        uuid.UUID(data.child_id)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid child_id format. Must be a valid UUID.",
+        )
+
     return await service.classify_and_handle(db, redis_client, data)
 
 

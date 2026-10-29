@@ -151,3 +151,36 @@ async def test_create_child_account(client):
     assert child_data["role"] == "child"
     assert child_data["email"] == "child@test.com"
 
+    # Test listing children
+    list_resp = await client.get("/auth/children", headers={"Authorization": f"Bearer {token}"})
+    assert list_resp.status_code == 200
+    children = list_resp.json()["children"]
+    assert len(children) == 1
+    assert children[0]["email"] == "child@test.com"
+    assert children[0]["nickname"] == "سعد"
+
+    # Test /api/v1/ prefix compatibility
+    v1_list_resp = await client.get("/api/v1/auth/children", headers={"Authorization": f"Bearer {token}"})
+    assert v1_list_resp.status_code == 200
+    assert len(v1_list_resp.json()["children"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_rate_limiting_enforced(client):
+    from app.core.limiter import limiter
+    limiter.enabled = True
+    try:
+        # Send requests until rate limit (20/min) is reached
+        hit_429 = False
+        for _ in range(25):
+            resp = await client.post("/auth/login", json={
+                "email": "nonexistent@test.com",
+                "password": "wrongpassword",
+            })
+            if resp.status_code == 429:
+                hit_429 = True
+                break
+        assert hit_429 is True
+    finally:
+        limiter.enabled = False
+

@@ -193,3 +193,25 @@ async def create_child_account(
     await db.refresh(child)
 
     return UserResponse.model_validate(child)
+
+
+async def get_parent_children(db: AsyncSession, parent: User) -> dict:
+    """Retrieve all child accounts linked to the authenticated parent."""
+    query = (
+        select(User, FamilyMember.nickname)
+        .join(FamilyMember, User.id == FamilyMember.child_id)
+        .join(Family, Family.id == FamilyMember.family_id)
+        .where(Family.parent_id == parent.id)
+    )
+    result = await db.execute(query)
+    children = []
+    for user, nickname in result.all():
+        children.append({
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name or "طفل",
+            "nickname": nickname,
+            "role": user.role,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        })
+    return {"children": children}

@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.main import app
 from app.core.database import Base, get_db
+from app.core.limiter import limiter
+
+# Disable global rate limiter during test suite execution to prevent false throttling
+limiter.enabled = False
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_all.db"
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)

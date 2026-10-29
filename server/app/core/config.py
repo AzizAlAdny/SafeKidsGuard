@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     APP_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     AI_CONFIDENCE_THRESHOLD: float = 0.75
 
+    # AI Engine (Phase 2 Transformers)
+    AI_ENABLE_TRANSFORMERS: bool = False
+    ARABERT_MODEL_NAME: str = "aubmindlab/bert-base-arabertv2"
+    CAMELBERT_MODEL_NAME: str = "CAMeL-Lab/bert-base-arabic-camelbert-mix"
+
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
