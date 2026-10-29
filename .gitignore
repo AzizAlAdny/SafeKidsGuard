@@ -39,3 +39,10 @@ local.properties
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# agents files and docs
+.agents/*
+.agents/rules/*
+.agents/plan/*
+
+docs/*
