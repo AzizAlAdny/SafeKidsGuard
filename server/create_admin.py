@@ -31,7 +31,7 @@ async def create_admin(email: str, password: str, full_name: str):
                 user.role = "admin"
                 user.is_active = True
                 await session.commit()
-                print(f"[✓] Promoted existing user '{email}' to 'admin'.")
+                print(f"[OK] Promoted existing user '{email}' to 'admin'.")
             return
 
         new_admin = User(
@@ -43,7 +43,7 @@ async def create_admin(email: str, password: str, full_name: str):
         )
         session.add(new_admin)
         await session.commit()
-        print(f"[✓] Successfully created new administrator account:")
+        print(f"[OK] Successfully created new administrator account:")
         print(f"    Email:    {email}")
         print(f"    Role:     admin")
         print(f"    Name:     {full_name}")
@@ -61,12 +61,12 @@ async def promote_user(email: str):
         user.role = "admin"
         user.is_active = True
         await session.commit()
-        print(f"[✓] Successfully promoted '{email}' to 'admin' role.")
+        print(f"[OK] Successfully promoted '{email}' to 'admin' role.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Manage Safe Kids Guard Administrator Accounts")
-    parser.add_argument("--email", type=str, default="admin@safekids.local", help="Admin email address")
+    parser.add_argument("--email", type=str, default="admin@safekidsguard.com", help="Admin email address")
     parser.add_argument("--password", type=str, default="Admin@123456", help="Admin password (min 8 chars)")
     parser.add_argument("--name", type=str, default="System Administrator", help="Admin full name")
     parser.add_argument("--promote", type=str, help="Promote an existing user to admin by email")

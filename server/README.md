@@ -288,14 +288,14 @@ A dedicated CLI script [create_admin.py](create_admin.py) is included to initial
 
 ```bash
 # Create a new administrator account:
-python create_admin.py --email admin@safekids.local --password "Admin@123456" --name "System Administrator"
+python create_admin.py --email admin@safekidsguard.com --password "Admin@123456" --name "System Administrator"
 
 # Or promote an existing user account to admin:
 python create_admin.py --promote aziz@gmail.com
 ```
 
 > **Default Admin Account:**
-> * **Email:** `admin@safekids.local`
+> * **Email:** `admin@safekidsguard.com`
 > * **Password:** `Admin@123456`
 > * **Admin Portal URL:** `http://localhost:3000/admin` (or sign in via `http://localhost:3000/login`)
 

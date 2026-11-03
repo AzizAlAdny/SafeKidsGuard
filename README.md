@@ -178,7 +178,7 @@ docker compose --profile full up --build
 
 | Role | Email | Password | Post-Login Landing Page |
 |---|---|---|---|
-| **System Administrator (Admin)** | `admin@safekids.local` | `Admin@123456` | `/admin` (User management, AI metrics, content moderation) |
+| **System Administrator (Admin)** | `admin@safekidsguard.com` | `Admin@123456` | `/admin` (User management, AI metrics, content moderation) |
 | **Parent** | `aziz@gmail.com` | User registered password | `/dashboard` (Child monitoring, alerts, policies) |
 
 > [!NOTE]
