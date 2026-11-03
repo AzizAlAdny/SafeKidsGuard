@@ -1,7 +1,6 @@
 # Safe Kids Guard (حارس الأطفال الآمن) 🛡️👨‍👩‍👧‍👦
 
 > **منصة متكاملة قائمة على الذكاء الاصطناعي للرقابة الأبوية وحماية الأطفال من المحتوى الضار باللغة العربية**  
-> *مشروع تخرج — جامعة جدة (كلية علوم وهندسة الحاسب — قسم تقنية المعلومات / الأمن السيبراني والذكاء الاصطناعي) 2026/2027*
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_Python_3.11-009688.svg)](server/)
 [![Next.js](https://img.shields.io/badge/Dashboard-Next.js_16_Turbopack-black.svg)](client/Dashboard/)
@@ -168,6 +167,5 @@ docker compose up --build
 * 📘 [دليل الخادم والذكاء الاصطناعي (Server README)](server/README.md)
 * 💻 [دليل لوحة تحكم ولي الأمر (Dashboard README)](client/Dashboard/README.md)
 * 📱 [دليل تطبيق أندرويد لرصد الشاشة (Android App README)](client/child_monitoring_app/README.md)
-* 📋 [مستند المتطلبات الأكاديمية (Requirements)](docs/requerments.md)
 
 ---
