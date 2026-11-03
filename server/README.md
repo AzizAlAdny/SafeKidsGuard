@@ -1,4 +1,4 @@
-# Safe Kids Guard API — خادم حارس الأطفال الآمن 🛡️
+# Safe Kids Guard API — Server & AI Engine 🛡️
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11.9-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -9,74 +9,74 @@
 [![Meta WhatsApp API](https://img.shields.io/badge/WhatsApp-Cloud_API_v21.0-25D366.svg)](https://developers.facebook.com/)
 [![Tests](https://img.shields.io/badge/Pytest-39%2F39_Passed-brightgreen.svg)](https://docs.pytest.org/)
 
-**Safe Kids Guard (حارس الأطفال الآمن)** هو خادم ذكي مبني باستخدام **FastAPI** وموجّه لحماية الأطفال من التهديدات والمحتوى الضار على الإنترنت في البيئة الرقمية العربية. يمثل الخادم العقل المدبر للمنظومة الثلاثية (تطبيق أندرويد لرصد شاشة الطفل + لوحة تحكم ويب تفاعلية لولي الأمر + خادم الذكاء الاصطناعي)، ويعد مشروع تخرج لجامعة جدة (University of Jeddah - 2026/2027).
+**Safe Kids Guard API** is an intelligent parental-control backend built with **FastAPI**, designed to protect children from digital threats and harmful content in Arabic digital environments. It serves as the core intelligence hub coordinating the three-tier system (Android child accessibility service + Parent web dashboard + AI moderation core).
 
 ---
 
-## 📑 جدول المحتويات
-1. [المزايا والقدرات الأساسية](#-المزايا-والقدرات-الأساسية)
-2. [الهيكل المعماري للنظام (Architecture)](#-الهيكل-المعماري-للنظام)
-3. [هيكلية مجلدات المشروع (Directory Structure)](#-هيكلية-مجلدات-المشروع)
-4. [المتطلبات الأساسية (Prerequisites)](#-المتطلبات-الأساسية)
-5. [التثبيت والإعداد السريع (Quickstart)](#-التثبيت-والإعداد-السريع)
-6. [متغيرات البيئة (.env Configuration)](#-متغيرات-البيئة)
-7. [قاعدة البيانات وترحيل الجداول (Migrations)](#-قاعدة-البيانات-وترحيل-الجداول)
-8. [تشغيل الخادم (Running the Server)](#-تشغيل-الخادم)
-9. [الاختبارات الآلية (Testing)](#-الاختبارات-الآلية)
-10. [دليل نقاط النهاية البرمجية (API Reference)](#-دليل-نقاط-النهاية-البرمجية)
+## 📑 Table of Contents
+1. [Core Features & Capabilities](#-core-features--capabilities)
+2. [System Architecture](#-system-architecture)
+3. [Project Directory Structure](#-project-directory-structure)
+4. [Prerequisites](#-prerequisites)
+5. [Quickstart & Local Installation](#-quickstart--local-installation)
+6. [Environment Variables (.env Configuration)](#-environment-variables)
+7. [Database & Migrations](#-database--migrations)
+8. [Running the Server](#-running-the-server)
+9. [Automated Testing](#-automated-testing)
+10. [RESTful API Reference](#-restful-api-reference)
 
 ---
 
-## 🚀 المزايا والقدرات الأساسية
+## 🚀 Core Features & Capabilities
 
-### 1. محرك الذكاء الاصطناعي لمعالجة النصوص العربية (Dual-Model Ensemble)
-* **المعالجة المسبقة الشاملة للنصوص العربية (`preprocessing.py`):**
-  * إزالة التشكيل وعلامات الإعراب (Tashkeel Removal).
-  * إزالة التطويل والكشيدة (Tatweel/Kashida Removal).
-  * توحيد الحروف العربية (همزات الألف، الياء والألف المقصورة، التاء المربوطة والهاء).
-  * اختزال التكرار المتعمد وتمديد الحروف (Elongation Reduction).
-  * معالجة وتحويل الأرابيزي (Arabizi / Leetspeak Normalization) مثل تحويل `7mar` إلى `حمار`.
-* **الدمج بين نموذجين لغويين (Dual Ensemble):**
-  * **AraBERT v2 (`aubmindlab/bert-base-arabertv2`):** متخصص في اللغة العربية الفصحى (MSA).
-  * **CAMeLBERT (`CAMeL-Lab/bert-base-arabic-camelbert-da` / `hossam87/bert-base-arabic-hate-speech`):** للتعامل مع اللهجات الدارجة المحكية (Saudi, Gulf, Levantine) وخطاب الكراهية.
-  * فحص سريع مبكر (Heuristic Fast-Path) لحالات التهديد الصريحة وتقليل زمن الاستجابة إلى ما دون 100 ميلي ثانية.
-* **فئات التصنيف الخمس:**
-  * `SAFE`: محتوى آمن وسليم.
-  * `CYBERBULLYING`: تنمر إلكتروني، سب وشتم وتهديد.
-  * `SEXUAL`: محتوى إباحي وتلميحات غير لائقة.
-  * `VIOLENCE`: عنف جسدي، قتل، أسلحة، تحريض على إيذاء النفس.
-  * `HATE_SPEECH`: خطاب كراهية، عنصرية، تمييز طائفي أو قبلي.
+### 1. Arabic NLP AI Moderation Engine (Dual-Model Ensemble)
+* **Comprehensive Arabic Preprocessing Pipeline (`preprocessing.py`):**
+  * Tashkeel (diacritics) removal.
+  * Tatweel / Kashida (character elongation) removal.
+  * Arabic letter normalization (Hamza variations, Alif Maqsura, Taa Marbuta).
+  * Repeated character compression (Elongation Reduction).
+  * Arabizi / Leetspeak translation (e.g., converting `7mar` to `حمار` while preserving pure numbers like `2026`).
+* **Dual Ensemble Architecture:**
+  * **AraBERT v2 (`aubmindlab/bert-base-arabertv2`):** Specialized for Modern Standard Arabic (MSA).
+  * **CAMeLBERT (`CAMeL-Lab/bert-base-arabic-camelbert-da` / `hossam87/bert-base-arabic-hate-speech`):** Tuned for regional spoken dialects (Gulf, Egyptian, Levantine) and hate speech detection.
+  * Fast-Path regex heuristics for explicit threats with sub-100ms response times.
+* **Five Classification Categories:**
+  * `SAFE`: Benign and appropriate content.
+  * `CYBERBULLYING`: Harassment, insults, and verbal bullying.
+  * `SEXUAL`: Inappropriate, explicit, or sexually suggestive text.
+  * `VIOLENCE`: Physical threats, assault, weaponry, and self-harm incitement.
+  * `HATE_SPEECH`: Racial, sectarian, or discriminatory speech.
 
-### 2. التخزين المؤقت فائق السرعة عبر Redis (Cache Layer)
-* تخزين قرارات التصنيف باستخدام بصمة SHA-256 الفريدة للنص المعالج.
-* فترة استبقاء ذكية (TTL 24 ساعة) تقلل الضغط على نماذج الذكاء الاصطناعي وتتيح استجابة فورية (Sub-millisecond).
-* وضع التراجع المرن (Graceful Degradation): استمرار الخادم بالعمل بكفاءة حتى في حال انقطاع اتصال Redis.
+### 2. High-Performance Redis Caching Layer
+* Caches classification outcomes keyed by the SHA-256 fingerprint of preprocessed text.
+* 24-hour TTL drastically reduces inference load on Transformer models, enabling sub-millisecond responses for repeated queries.
+* Graceful fallback: the system seamlessly continues running in-memory if Redis is offline.
 
-### 3. منظومة التنبيهات متعددة القنوات (Multi-Layer Alerting)
-* **القناة الأساسية (WhatsApp Business Cloud API - Meta v21.0):**
-  * إرسال تنبيهات واتساب رسمية فورية وموثوقة لولي الأمر عند رصد محتوى محظور.
-  * معالجة وتحويل أرقام الهواتف السعودية تلقائياً للصيغة الدولية (`966XXXXXXXXX`).
-* **القناة الاحتياطية (FCM Web Push):**
-  * إرسال إشعارات المتصفح الفورية في حال عدم توفر الواتساب.
+### 3. Multi-Channel Alert Dispatch
+* **Primary Channel (Meta WhatsApp Cloud API v21.0):**
+  * Real-time official template notifications delivered directly to parents upon detecting blocked content.
+  * Automatic normalization of Saudi phone numbers to international E.164 format (`966XXXXXXXXX`).
+* **Secondary Channel (FCM Web Push):**
+  * Direct browser push notifications when WhatsApp delivery is unavailable.
 
-### 4. إدارة سياسات الرقابة الأبوية وضوابط الأمان (Parental Policies)
-* تحديد حساسية الذكاء الاصطناعي (Sensitivity Threshold) لكل طفل بين 50% إلى 95%.
-* مفاتيح تحكم مستقلة لتفعيل أو تعطيل حظر كل فئة من فئات التهديد.
-* حظر التطبيقات عبر حزم أندرويد (مثل TikTok, Instagram, Snapchat, Roblox).
-* القائمة السوداء المخصصة للمواقع غير المرغوبة (URL Blacklist).
-* ضوابط وقت الشاشة (Screen Time Limit) وساعات النوم الإجبارية (Bedtime Window).
+### 4. Granular Parental Policies & Device Control
+* Per-child configurable AI sensitivity threshold (50% to 95%).
+* Independent toggles for each safety category.
+* Application blacklisting via Android package names (e.g. TikTok, Instagram, Snapchat, Roblox).
+* Custom website and domain blacklist (URL Blacklist).
+* Daily screen-time allowances and enforced bedtime windows.
 
-### 5. سجل الأنشطة المباشر وحماية الخصوصية (Activity Logging)
-* تسجيل كل فحص نصي مع التطبيق والسياق وزمن الحدث.
-* حماية خصوصية الطفل باقتطاع وحفظ أول 200 حرف فقط من النص المشبوه دون تخزين نصوص كاملة أو بيانات حساسة.
+### 5. Live Activity Stream & Privacy Protection
+* Records on-screen text events with originating app package, context, and timestamp.
+* Child privacy is strictly preserved: text snippets are truncated to 200 characters, and sensitive input fields are filtered.
 
-### 6. التقارير التحليلية وتصدير PDF (Analytics & Reports)
-* حساب مؤشر الأمان الرقمي (Digital Safety Score) ونسب التهديدات اليومية.
-* توليد وتصدير تقارير تنفيذية رسمية بصيغة **PDF** عبر محرك `ReportLab` تتضمن جداول التهديدات والرسوم الإحصائية.
+### 6. Analytics & Arabic PDF Reports
+* Computes real-time Digital Safety Scores and threat distribution ratios.
+* Generates downloadable executive PDF reports using `ReportLab` with complete Arabic bidirectional (BiDi) shaping and custom TrueType fonts.
 
 ---
 
-## 🏛️ الهيكل المعماري للنظام
+## 🏛️ System Architecture
 
 ```
                      ┌───────────────────────────────────┐
@@ -113,267 +113,274 @@
 
 ---
 
-## 📁 هيكلية مجلدات المشروع
+## 📁 Project Directory Structure
 
 ```
 server/
 ├── app/
-│   ├── activity/                # سجل النشاط المباشر وتتبع سلوك التصفح
-│   │   ├── models.py            # نموذج ActivityEvent ORM
+│   ├── activity/                # Live activity feed and browsing log services
+│   │   ├── models.py            # ActivityEvent ORM entity
 │   │   ├── router.py            # GET/POST /activity
-│   │   ├── schemas.py           # نماذج Pydantic للأنشطة والترقيم
-│   │   └── service.py           # منطق تسجيل واسترجاع أنشطة الأطفال
-│   ├── ai_engine/               # محرك الذكاء الاصطناعي ومعالجة النصوص العربية
-│   │   ├── cache.py             # التخزين المؤقت Redis مع fallback
-│   │   ├── classifier.py        # نموذج الفحص المزدوج وفئات التهديد
-│   │   ├── model.py             # محمل نماذج HuggingFace (Lazy Singleton)
-│   │   └── preprocessing.py     # فلترة التشكيل، التطويل، الأرابيزي، والتوحيد
-│   ├── alerts/                  # منظومة الإشعارات والتنبيهات
+│   │   ├── schemas.py           # Pydantic schemas for event batches and pagination
+│   │   └── service.py           # Activity ingestion and child ownership validation
+│   ├── ai_engine/               # Arabic NLP and dual-model classification core
+│   │   ├── cache.py             # Redis caching layer with fallback
+│   │   ├── classifier.py        # Dual ensemble classifier and threat rules
+│   │   ├── model.py             # HuggingFace model loader (Lazy Singleton)
+│   │   └── preprocessing.py     # Diacritics, Tatweel, Arabizi, and HTML cleaning
+│   ├── alerts/                  # Notification and alert dispatch services
 │   │   ├── router.py            # GET/PUT /notifications/preferences, test-whatsapp
-│   │   ├── schemas.py           # نماذج التفضيلات والتحقق من الأرقام
-│   │   └── whatsapp.py          # تكامل Meta WhatsApp Business Cloud API
-│   ├── auth/                    # التوثيق وصلاحيات المستخدمين (أولياء أمور، أطفال)
+│   │   ├── schemas.py           # Notification settings schemas
+│   │   └── whatsapp.py          # Meta WhatsApp Cloud API integration
+│   ├── auth/                    # Authentication, device pairing & RBAC
 │   │   ├── models.py            # User, Family, FamilyMember, NotificationPreferences
 │   │   ├── router.py            # /auth/register, /login, /refresh, /children, /me
-│   │   ├── schemas.py           # التحقق من المدخلات وكلمات المرور والهواتف
-│   │   └── service.py           # تشفير Bcrypt وتدوير JWT Refresh Tokens
-│   ├── content_filter/          # فلترة المحتوى والربط بين السياسات والتنبيهات
-│   │   ├── models.py            # نموذج Alert ORM
-│   │   ├── router.py            # POST /classification/predict, GET /alerts
-│   │   ├── schemas.py           # طلب واستجابة الفحص
-│   │   └── service.py           # فحص السياسات، تسجيل الأنشطة، وإطلاق التنبيهات
-│   ├── core/                    # إعدادات النظام والبنية التحتية
-│   │   ├── config.py            # Pydantic Settings لقراءة متغيرات البيئة
-│   │   ├── database.py          # محرك SQLAlchemy AsyncSession وقاعدة البيانات
-│   │   ├── dependencies.py      # دوال حقن التبعيات (get_current_user, get_db)
-│   │   ├── redis.py             # إدارة اتصال وإغلاق Redis
-│   │   └── security.py          # توليد وفك تشفير رموز JWT
-│   ├── policies/                # سياسات الرقابة الأبوية وحظر التطبيقات
-│   │   ├── models.py            # نموذج Policy ORM
+│   │   ├── schemas.py           # Registration, credentials, and pairing models
+│   │   └── service.py           # Bcrypt hashing, JWT generation, 6-digit PIN pairing
+│   ├── content_filter/          # Content moderation and policy enforcement
+│   │   ├── models.py            # Alert ORM entity
+│   │   ├── router.py            # POST /classification/predict, GET /alerts, /request-access
+│   │   ├── schemas.py           # Prediction request/response schemas
+│   │   └── service.py           # Sensitivity threshold evaluation and alert triggers
+│   ├── core/                    # System infrastructure and configuration
+│   │   ├── config.py            # Pydantic Settings with multi-path .env resolution
+│   │   ├── database.py          # SQLAlchemy AsyncSession and database engine
+│   │   ├── dependencies.py      # Dependency injection (get_current_user, require_role)
+│   │   ├── redis.py             # Redis client lifecycle management
+│   │   └── security.py          # JWT issuance, revocation, and long-password hashing
+│   ├── policies/                # Parental policies and application blacklist
+│   │   ├── models.py            # Policy ORM entity
 │   │   ├── router.py            # GET/PUT /policies/{child_id}
-│   │   ├── schemas.py           # مدخلات السياسات وحساسية الذكاء الاصطناعي
-│   │   └── service.py           # التحقق من ملكية الوالد وتحديث السياسات
-│   ├── reports/                 # التقارير والتحليلات وتصدير PDF
+│   │   ├── schemas.py           # Policy configuration schemas
+│   │   └── service.py           # Ownership verification and policy updates
+│   ├── reports/                 # Reporting and Arabic PDF exports
 │   │   ├── router.py            # GET /reports/summary, GET /reports/export-pdf
-│   │   ├── schemas.py           # هياكل مؤشرات الأمان وتوزيع التهديدات
-│   │   └── service.py           # حساب الإحصائيات وتوليد PDF عبر ReportLab + Arabic BiDi
-│   ├── admin/                   # وحدة إدارة النظام والمشرفين (FR10–FR13, UC-A1–UC-A6)
+│   │   ├── schemas.py           # Safety score and threat distribution models
+│   │   └── service.py           # Metrics aggregation and ReportLab BiDi PDF generator
+│   ├── admin/                   # Administrator management module (FR10–FR13, UC-A1–UC-A6)
 │   │   ├── router.py            # /admin/users, /ai-metrics, /flagged, /settings
-│   │   ├── schemas.py           # نماذج إدارة المستخدمين ومراجعة البلاغات وإعدادات النظام
-│   │   └── service.py           # منطق إدارة المستخدمين ومؤشرات الذكاء الاصطناعي
-│   └── main.py                  # نقطة انطلاق تطبيق FastAPI وربط المسارات وCORS
-├── alembic/                     # ترحيل وإدارة بنية قاعدة البيانات
-│   ├── versions/                # ملفات الترحيل المتتالية (Migrations)
-│   └── env.py                   # تهيئة اتصال Alembic وتسجيل الموديلات
-├── tests/                       # حزمة الاختبارات الشاملة (39 اختباراً)
-│   ├── conftest.py              # إعدادات بيئة الاختبار وعزل قواعد البيانات
-│   ├── test_activity.py         # اختبارات تسجيل الأنشطة وتطبيق السياسات
-│   ├── test_auth.py             # اختبارات التسجيل، تسجيل الدخول، وأرقام الهواتف
-│   ├── test_classification.py   # اختبارات تصنيف النصوص واستدعاء التنبيهات
-│   ├── test_notifications.py    # اختبارات تفضيلات الإشعارات والواتساب
-│   ├── test_policies.py         # اختبارات قراءة وتعديل سياسات الحماية
-│   ├── test_preprocessing.py    # اختبارات خط معالجة النصوص العربية
-│   ├── test_reports.py          # اختبارات ملخص التقارير وتصدير ملفات PDF
-│   └── test_security_and_admin.py # اختبارات الأمان، الصلاحيات، الاقتران، دقة العربية، ولوحة المشرف
-├── .env.example                 # نموذج إرشادي لمتغيرات البيئة
-├── alembic.ini                  # ملف إعدادات أداة Alembic
-├── Dockerfile                   # ملف بناء حاوية الخادم للإنتاج
-├── pytest.ini                   # إعدادات تشغيل Pytest بوضع Asyncio
-└── requirements.txt             # حزم ومكتبات بايثون المطلوبة
+│   │   ├── schemas.py           # User administration and flagged content schemas
+│   │   └── service.py           # Account deactivation, metrics, and appeal review
+│   └── main.py                  # FastAPI application entrypoint, CORS, and routers
+├── alembic/                     # Database schema migration files
+│   ├── versions/                # Ordered revision migration scripts
+│   └── env.py                   # Alembic environment and model metadata registry
+├── tests/                       # Comprehensive automated test suite (39 tests)
+│   ├── conftest.py              # Test harness and in-memory database isolation
+│   ├── test_activity.py         # Activity logging and policy exception tests
+│   ├── test_auth.py             # Registration, login, rate limiting, and PIN pairing tests
+│   ├── test_classification.py   # Classification accuracy and alert trigger tests
+│   ├── test_notifications.py    # Notification preferences and WhatsApp tests
+│   ├── test_policies.py         # Policy updates and authorization tests
+│   ├── test_preprocessing.py    # Arabic normalization and Arabizi tests
+│   ├── test_reports.py          # Summary analytics and binary PDF tests
+│   └── test_security_and_admin.py # IDOR security, device pairing, and admin tests
+├── .env.example                 # Reference environment template
+├── alembic.ini                  # Alembic CLI configuration
+├── Dockerfile                   # Production container definition
+├── pytest.ini                   # Pytest configuration with asyncio mode
+└── requirements.txt             # Pinned Python package dependencies
 ```
 
 ---
 
-## 💻 المتطلبات الأساسية
+## 💻 Prerequisites
 
-* **Python 3.11.9 (64-bit)**: الإصدار المعتمد والمتوافق 100% مع حزم `torch` و`transformers` المجمعة مسبقاً (Wheels) على أنظمة Windows وLinux.
-* **Redis** (محلياً أو عبر Docker أو السحابة): اختياري للتطوير، أساسي للإنتاج.
-* **Git** لإدارة الإصدارات.
+* **Python 3.11.9 (64-bit)**: Recommended version with pre-compiled wheels for `torch` and `transformers`.
+* **Redis** (local, Docker, or managed cloud): Optional for local dev, recommended for production.
+* **Git** for version control.
 
 ---
 
-## ⚡ التثبيت والإعداد السريع
+## ⚡ Quickstart & Local Installation
 
-### 1. استنساخ المستودع والدخول لمجلد الخادم
+### 1. Clone Repository & Navigate to Server Directory
 ```bash
 cd server
 ```
 
-### 2. إنشاء وتفعيل البيئة الافتراضية
+### 2. Create and Activate Virtual Environment
 ```bash
-# إنشاء البيئة باستخدام بايثون 3.11
+# Create virtual environment with Python 3.11
 py -3.11 -m venv .venv
 
-# التفعيل على نظام Windows (PowerShell):
+# Windows (PowerShell):
 .\.venv\Scripts\Activate.ps1
 
-# التفعيل على أنظمة Linux / macOS:
+# Linux / macOS:
 source .venv/bin/activate
 ```
 
-### 3. تثبيت الاعتمادات والحزم البرمجية
+### 3. Install Dependencies
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4. إعداد ملف البيئة
+### 4. Configure Environment Variables
 ```bash
 cp .env.example .env
 ```
-قم بفتح ملف `.env` وضبط المفاتيح بما يناسب بيئة العمل (انظر القسم التالي).
+Open `.env` and verify your settings (see table below).
+
+### 5. Apply Database Migrations & Seed Default Admin
+```bash
+alembic upgrade head
+python create_admin.py
+```
 
 ---
 
-## 🔐 متغيرات البيئة
+## 🔐 Environment Variables
 
-| المتغير | القيمة الافتراضية | الوصف |
+| Variable | Default Value | Description |
 |---|---|---|
-| `DATABASE_URL` | `sqlite+aiosqlite:///./safekids_dev.db` | رابط الاتصال بقاعدة البيانات (SQLite محلياً أو PostgreSQL/Supabase للإنتاج) |
-| `REDIS_URL` | `redis://localhost:6379/0` | عنوان خادم Redis للكاش |
-| `JWT_SECRET_KEY` | *(مفتاح عشوائي طويل)* | مفتاح التشفير السري لرموز JWT |
-| `JWT_ALGORITHM` | `HS256` | خوارزمية تشفير الرموز |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | مدة صلاحية رمز الوصول (Access Token) بالدقائق |
-| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `7` | مدة صلاحية رمز التجديد (Refresh Token) بالأيام |
-| `WA_PHONE_NUMBER_ID` | `""` | معرّف رقم هاتف واتساب من بوابة مطوري Meta |
-| `WA_ACCESS_TOKEN` | `""` | رمز الوصول الدائم (System User Token) لـ Meta Cloud API |
-| `AI_CONFIDENCE_THRESHOLD` | `0.75` | الحد الأدنى لنسبة ثقة الذكاء الاصطناعي لحظر المحتوى (0.0 إلى 1.0) |
-| `APP_ENV` | `development` | بيئة التطبيق (`development` تتيح `/docs` و`/redoc`) |
-| `APP_CORS_ORIGINS` | `http://localhost:3000,...` | النطاقات المصرح لها بالتواصل عبر CORS |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./safekids_dev.db` | Async database connection URL (SQLite local, PostgreSQL for production) |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis caching connection string |
+| `JWT_SECRET_KEY` | *(Random long string)* | Cryptographic key used to sign JWT tokens |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token lifespan in minutes |
+| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `7` | Refresh token lifespan in days |
+| `WA_PHONE_NUMBER_ID` | `""` | WhatsApp Phone Number ID from Meta Developer Console |
+| `WA_ACCESS_TOKEN` | `""` | Permanent System User Token for Meta Cloud API |
+| `AI_CONFIDENCE_THRESHOLD` | `0.75` | Minimum AI probability required to trigger automated blocking |
+| `APP_ENV` | `development` | Environment mode (`development` enables Swagger at `/docs`) |
+| `APP_CORS_ORIGINS` | `http://localhost:3000,...` | Whitelisted origins allowed for CORS |
 
 ---
 
-## 🗄️ قاعدة البيانات وترحيل الجداول
+## 🗄️ Database & Migrations
 
-يستخدم الخادم أداة **Alembic** لإدارة ترقيات بنية قاعدة البيانات تلقائياً:
+The backend utilizes **Alembic** for asynchronous database schema management:
 
 ```bash
-# تطبيق جميع الترحيلات المعلقة حتى أحدث إصدار:
+# Apply all pending migrations to the latest revision:
 alembic upgrade head
 
-# إنشاء ترحيل جديد تلقائياً عند تعديل أي نموذج (Model):
-alembic revision --autogenerate -m "وصف التعديل"
+# Generate a new migration revision automatically after updating models:
+alembic revision --autogenerate -m "describe changes here"
 ```
 
 ---
 
-## 🏃 تشغيل الخادم
+## 🏃 Running the Server
 
-### وضع التطوير المحلي (Local Development)
+### Local Development Mode
 ```bash
-# تشغيل الخادم مع ميزة التحديث التلقائي عند حفظ الملفات:
+# Start server with live hot-reloading:
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-* **واجهة التوثيق التفاعلية (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
-* **واجهة التوثيق البديلة (ReDoc):** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-* **فحص صحة الخدمة (Health Check):** [http://localhost:8000/health](http://localhost:8000/health)
+* **Interactive OpenAPI Docs (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Alternative API Docs (ReDoc):** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+* **Health Check Endpoint:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### التشغيل عبر Docker
+### Running with Docker
 ```bash
-# بناء الحاوية:
+# Build the container:
 docker build -t safekidsguard-server .
 
-# تشغيل الحاوية:
+# Run the container:
 docker run -p 8000:8000 --env-file .env safekidsguard-server
 ```
 
-### 👤 إدارة حسابات المشرفين (Administrator Accounts)
-تم تزويد الخادم بأداة سطر أوامر `create_admin.py` لإنشاء حسابات المشرفين أو ترقية حساب مستخدم موجود:
+### 👤 Administrator Account Management
+A dedicated CLI script [create_admin.py](create_admin.py) is included to initialize or promote admin accounts:
+
 ```bash
-# إنشاء حساب مشرف جديد:
+# Create a new administrator account:
 python create_admin.py --email admin@safekids.local --password "Admin@123456" --name "System Administrator"
 
-# أو ترقية حساب ولي أمر موجود إلى مشرف:
+# Or promote an existing user account to admin:
 python create_admin.py --promote aziz@gmail.com
 ```
 
-> **حساب المشرف الافتراضي الجاهز:**
-> * **البريد الإلكتروني:** `admin@safekids.local`
-> * **كلمة المرور:** `Admin@123456`
-> * **رابط لوحة المشرف:** `http://localhost:3000/admin` (أو تسجيل الدخول عبر `http://localhost:3000/login`)
+> **Default Admin Account:**
+> * **Email:** `admin@safekids.local`
+> * **Password:** `Admin@123456`
+> * **Admin Portal URL:** `http://localhost:3000/admin` (or sign in via `http://localhost:3000/login`)
 
 ---
 
-## 🧪 الاختبارات الآلية (Testing)
+## 🧪 Automated Testing
 
-يحتوي الخادم على حزمة اختبارات شاملة معزولة بالكامل باستخدام قواعد بيانات SQLite مؤقتة في الذاكرة لتجنب التأثير على البيانات الحقيقية:
+The server includes an automated test suite executed against isolated in-memory SQLite instances:
 
 ```bash
-# تشغيل كامل حزمة الاختبارات:
+# Run the complete test suite:
 python -m pytest tests/ -v
 ```
 
-### ملخص نتائج الاختبارات (39 اختباراً ناجحاً بنسبة 100%):
-* `tests/test_auth.py` (10 اختبارات): إنشاء الحسابات، التحقق من كلمات المرور، استخراج وتجديد رموز JWT، والتحقق الصارم من صحة أرقام الهواتف السعودية وتقييد الطلبات.
-* `tests/test_preprocessing.py` (6 اختبارات): تنظيف النصوص العربية، إزالة التشكيل، التطويل، الأرابيزي، واختزال التكرار.
-* `tests/test_classification.py` (6 اختبارات): دقة تصنيف النصوص إلى الفئات الخمس، وفحص مسار التدخل التلقائي وإطلاق التنبيهات.
-* `tests/test_notifications.py` (3 اختبارات): قراءة وتحديث تفضيلات الإشعارات، وتجربة إرسال رسائل الواتساب.
-* `tests/test_policies.py` (2 اختباران): استرجاع وتحديث سياسات الحماية للأبناء ومنع الوصول غير المصرح به.
-* `tests/test_activity.py` (1 اختبار): تسجيل نشاط التصفح وتطبيق استثناءات السياسات الأبوية.
-* `tests/test_reports.py` (1 اختبار): استخراج الإحصائيات الشاملة وتصدير ملفات PDF صالحة وسليمة ثنائياً (`%PDF-`).
-* `tests/test_security_and_admin.py` (10 اختبارات): حماية المسارات ومنع IDOR، اقتران الأجهزة برمز 6 أرقام، إبطال الرموز عند تسجيل الخروج، منع الإنذارات الكاذبة للغة العربية، وطلبات السماح ووظائف المشرف.
+### Test Suite Summary (39 / 39 Tests Passing, 100%):
+* `tests/test_auth.py` (10 tests): User registration, password verification, JWT issuance and refresh, Saudi phone formatting, and SlowAPI rate limiting.
+* `tests/test_preprocessing.py` (6 tests): Arabic cleaning, HTML tag stripping, Tashkeel/Tatweel removal, Arabizi transliteration, and repetition reduction.
+* `tests/test_classification.py` (6 tests): Classification accuracy across five categories and automated alert triggering.
+* `tests/test_notifications.py` (3 tests): Notification preferences retrieval, updates, and simulated WhatsApp delivery.
+* `tests/test_policies.py` (2 tests): Policy fetching, sensitivity updates, and unauthorized access prevention.
+* `tests/test_activity.py` (1 test): Activity logging and parental exception handling.
+* `tests/test_reports.py` (1 test): Analytics data aggregation and valid binary Arabic PDF export (`%PDF-`).
+* `tests/test_security_and_admin.py` (10 tests): IDOR protection, 6-digit PIN device pairing/unpairing, token revocation upon logout, Arabic false-positive regression, child appeals, and administrator control APIs.
 
 ---
 
-## 📡 دليل نقاط النهاية البرمجية (API Reference)
+## 📡 RESTful API Reference
 
-### 1. التوثيق والمستخدمين واقتران الأجهزة (`/auth`)
-| الدالة | المسار | الحماية | الوصف |
+### 1. Authentication, Users & Device Pairing (`/auth`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `POST` | `/auth/register` | عام | تسجيل حساب ولي أمر جديد مع رقم الواتساب المعتمد |
-| `POST` | `/auth/login` | عام | تسجيل الدخول واستخراج رمزي الوصول والتجديد (JWT مع `family_id`) |
-| `POST` | `/auth/refresh` | عام | تجديد رمز الوصول المنتهي باستخدام رمز التجديد |
-| `POST` | `/auth/logout` | Bearer Token | إبطال رمز التجديد وإنهاء الجلسة بأمان |
-| `GET` | `/auth/me` | Bearer Token | استرجاع الملف الشخصي للمستخدم الحالي |
-| `POST` | `/auth/children` | ولي أمر / مشرف | إنشاء حساب جديد للطفل وربطه بأسرة الوالد وتوليد رمز اقتران أولي |
-| `GET` | `/auth/children` | ولي أمر / مشرف | عرض قائمة الأبناء المرتبطين بولي الأمر وحالة الاقتران |
-| `POST` | `/auth/children/{child_id}/pairing-pin` | ولي أمر / مشرف | توليد رمز اقتران جديد مكون من 6 أرقام صالح لمدة 15 دقيقة |
-| `POST` | `/auth/pair-device` | عام (محدد المعدل) | ربط جهاز أندرويد الطفل باستخدام رمز الـ 6 أرقام وإصدار جلسة JWT للطفل |
-| `POST` | `/auth/unpair-device` | Bearer Token | إلغاء اقتران جهاز الطفل بعد التحقق من كلمة مرور ولي الأمر |
+| `POST` | `/auth/register` | Public | Register a new parent account with phone number |
+| `POST` | `/auth/login` | Public | Authenticate user and issue access and refresh tokens (JWT with `family_id`) |
+| `POST` | `/auth/refresh` | Public | Rotate expired access token using valid refresh token |
+| `POST` | `/auth/logout` | Bearer Token | Revoke refresh token and invalidate current session |
+| `GET` | `/auth/me` | Bearer Token | Retrieve currently authenticated user profile |
+| `POST` | `/auth/children` | Parent / Admin | Create child account, link to family, and generate initial PIN |
+| `GET` | `/auth/children` | Parent / Admin | List children linked to authenticated parent with pairing status |
+| `POST` | `/auth/children/{child_id}/pairing-pin` | Parent / Admin | Generate fresh 6-digit pairing PIN valid for 15 minutes |
+| `POST` | `/auth/pair-device` | Public (Rate-Limited) | Pair Android child app using 6-digit PIN and issue child JWT |
+| `POST` | `/auth/unpair-device` | Bearer Token | Unpair child device after verifying parent password |
 
-### 2. فحص المحتوى والتنبيهات (`/classification` & `/alerts`)
-| الدالة | المسار | الحماية | الوصف |
+### 2. Content Moderation & Alerts (`/classification` & `/alerts`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `POST` | `/classification/predict` | Bearer Token + ملكية الطفل | فحص النص المدخل بالذكاء الاصطناعي وتطبيق السياسة وإشعار الوالد في الخلفية عند الحظر |
-| `GET` | `/alerts` | ولي أمر / مشرف | استرجاع سجل التنبيهات مع إمكانية التصفية بحسب الفئة |
-| `POST` | `/alerts/request-access` | الطفل / ولي أمر | إرسال طلب مراجعة / سماح بالوصول عند حظر محتوى عن طريق الخطأ (`UC-C5`) |
+| `POST` | `/classification/predict` | Bearer Token + Child Ownership | Inspect on-screen text, apply policies, and dispatch background alert if blocked |
+| `GET` | `/alerts` | Parent / Admin | Retrieve threat alerts with category filtering |
+| `POST` | `/alerts/request-access` | Child / Parent | Submit child review appeal when content is blocked by mistake (`UC-C5`) |
 
-### 3. إعدادات الإشعارات (`/notifications`)
-| الدالة | المسار | الحماية | الوصف |
+### 3. Notification Preferences (`/notifications`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/notifications/preferences` | ولي أمر / مشرف | قراءة تفضيلات قنوات التنبيه (واتساب، إشعارات الويب) |
-| `PUT` | `/notifications/preferences` | ولي أمر / مشرف | تحديث رقم الواتساب وتفعيل/تعطيل قنوات التنبيه |
-| `POST` | `/notifications/test-whatsapp` | ولي أمر / مشرف | إرسال رسالة تجريبية فورية للواتساب للتأكد من وصول التنبيهات |
+| `GET` | `/notifications/preferences` | Parent / Admin | Retrieve alert channel preferences (WhatsApp, Web Push) |
+| `PUT` | `/notifications/preferences` | Parent / Admin | Update recipient phone number and toggle channels |
+| `POST` | `/notifications/test-whatsapp` | Parent / Admin | Send immediate test WhatsApp alert to verify delivery |
 
-### 4. سياسات الحماية (`/policies`)
-| الدالة | المسار | الحماية | الوصف |
+### 4. Parental Protection Policies (`/policies`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/policies/{child_id}` | ولي أمر / الطفل / مشرف | قراءة سياسة الحماية النشطة لجهاز الطفل |
-| `PUT` | `/policies/{child_id}` | ولي أمر / مشرف | تعديل الحساسية وفئات الحظر وقائمة التطبيقات والمواقع الممنوعة وأوقات النوم |
+| `GET` | `/policies/{child_id}` | Parent / Child / Admin | Fetch active protection policy for target child |
+| `PUT` | `/policies/{child_id}` | Parent / Admin | Update sensitivity, blocked categories, app blacklist, URL blacklist, and bedtimes |
 
-### 5. سجل النشاط المباشر (`/activity`)
-| الدالة | المسار | الحماية | الوصف |
+### 5. Live Activity Logging (`/activity`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/activity` | ولي أمر / مشرف | استعراض سجل تصفح الأبناء المباشر مع التصفية والترقيم |
-| `POST` | `/activity` | Bearer Token + ملكية الطفل | تسجيل حدث تصفح أو نص تم فحصه على شاشة جهاز الطفل |
-| `POST` | `/activity/batch` | Bearer Token + ملكية الطفل | تسجيل دفعة من أحداث النشاط دفعة واحدة |
+| `GET` | `/activity` | Parent / Admin | View real-time child activity log with pagination and filters |
+| `POST` | `/activity` | Bearer Token + Child Ownership | Ingest inspected screen text event from child device |
+| `POST` | `/activity/batch` | Bearer Token + Child Ownership | Ingest a batch of activity events in a single transaction |
 
-### 6. التقارير والتحليلات (`/reports`)
-| الدالة | المسار | الحماية | الوصف |
+### 6. Analytics & Reports (`/reports`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/reports/summary` | ولي أمر / مشرف | استخراج ملخص إحصائي لمؤشر الأمان والتهديدات المرصودة |
-| `GET` | `/reports/export-pdf` | ولي أمر / مشرف | تصدير وتحميل تقرير أمان تنفيذي بصيغة PDF داعم للغة العربية (BiDi) |
+| `GET` | `/reports/summary` | Parent / Admin | Aggregate digital safety score and threat distribution statistics |
+| `GET` | `/reports/export-pdf` | Parent / Admin | Generate and download executive Arabic PDF report (BiDi-formatted) |
 
-### 7. إدارة النظام والمشرفين (`/admin`)
-| الدالة | المسار | الحماية | الوصف |
+### 7. Administration & Governance (`/admin`)
+| Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/admin/users` | مشرف (`admin`) | استعراض كافة المستخدمين مع البحث والتصفية بحسب الدور (`FR10`) |
-| `PATCH` | `/admin/users/{user_id}` | مشرف (`admin`) | تفعيل/تعطيل حساب مستخدم أو تحديث صلاحياته (`UC-A1`) |
-| `DELETE` | `/admin/users/{user_id}` | مشرف (`admin`) | حذف حساب مستخدم وسجلاته المرتبطة (`UC-A1`) |
-| `GET` | `/admin/ai-metrics` | مشرف (`admin`) | مقاييس أداء نماذج الذكاء الاصطناعي وتوزيع التصنيفات (`FR11, FR13`) |
-| `GET` | `/admin/flagged` | مشرف (`admin`) | قائمة المحتوى المبلّغ وطلبات السماح لمراجعة الإيجابيات الخاطئة (`UC-A4`) |
-| `PATCH` | `/admin/flagged/{alert_id}` | مشرف (`admin`) | اعتماد البلاغ كآمن (`APPROVED_FALSE_POSITIVE`) أو تأكيد التهديد (`UC-A4`) |
-| `GET` | `/admin/settings` | مشرف (`admin`) | قراءة إعدادات الأمان وعتبة الذكاء الاصطناعي العامة (`FR12`) |
-| `PUT` | `/admin/settings` | مشرف (`admin`) | تحديث عتبة الثقة العامة وتفعيل نماذج Transformers (`UC-A6`) |
+| `GET` | `/admin/users` | Admin (`role: admin`) | List all registered accounts with role filtering (`FR10`) |
+| `PATCH` | `/admin/users/{user_id}` | Admin (`role: admin`) | Activate/deactivate user accounts or update roles (`UC-A1`) |
+| `DELETE` | `/admin/users/{user_id}` | Admin (`role: admin`) | Delete user account and associated records (`UC-A1`) |
+| `GET` | `/admin/ai-metrics` | Admin (`role: admin`) | AI model performance metrics and classification distribution (`FR11, FR13`) |
+| `GET` | `/admin/flagged` | Admin (`role: admin`) | List flagged/blocked content and pending child access appeals (`UC-A4`) |
+| `PATCH` | `/admin/flagged/{alert_id}` | Admin (`role: admin`) | Mark item as confirmed threat or approved false positive (`UC-A4`) |
+| `GET` | `/admin/settings` | Admin (`role: admin`) | Fetch system-wide security settings and AI threshold (`FR12`) |
+| `PUT` | `/admin/settings` | Admin (`role: admin`) | Update global confidence threshold and toggle transformer inference (`UC-A6`) |
 
 ---

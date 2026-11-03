@@ -1,4 +1,4 @@
-# Safe Kids Guard — تطبيق مراقبة وحماية جهاز الطفل 📱🛡️
+# Safe Kids Guard — Android Child Monitoring Client 📱🛡️
 
 [![Platform](https://img.shields.io/badge/Platform-Android_8.0+_(API_26--35)-green.svg)](https://developer.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF.svg)](https://kotlinlang.org/)
@@ -7,186 +7,191 @@
 [![Networking](https://img.shields.io/badge/Networking-Retrofit_2_%2B_OkHttp-blue.svg)](https://square.github.io/retrofit/)
 [![University](https://img.shields.io/badge/University_of_Jeddah-Graduation_Project-07365f.svg)](https://www.uj.edu.sa/)
 
-**Safe Kids Guard Child Monitoring App** هو تطبيق أندرويد متطور مخصص للتثبيت على أجهزة الأطفال، يعمل كحارس أمني ذكي ومستمر لمراقبة المحتوى النصي المعروض على شاشة الجهاز وحماية الطفل فورياً من التنمر الإلكتروني، المحتوى غير اللائق، العنف، وخطاب الكراهية.
+**Safe Kids Guard Child Monitoring App** is a native Android application installed on children's devices to serve as an intelligent, non-intrusive safety guard. It continuously inspects on-screen textual content in real time to protect minors from cyberbullying, adult/sexual content, violence, and hate speech.
 
-يعد التطبيق العميل الميداني لمنظومة مشروع تخرج جامعة جدة (2026/2027)، ويتكامل بصورة مباشرة مع خادم الذكاء الاصطناعي (**FastAPI**) ولوحة تحكم ولي الأمر (**Next.js Dashboard**).
-
----
-
-## 📑 جدول المحتويات
-1. [المزايا والقدرات التقنية](#-المزايا-والقدرات-التقنية)
-2. [آلية الرصد والحماية (How It Works)](#-آلية-الرصد-والحماية)
-3. [الأذونات المطلوبة وسياسة الخصوصية (Privacy & Permissions)](#-الأذونات-المطلوبة-وسياسة-الخصوصية)
-4. [هيكلية مجلدات المشروع (Project Structure)](#-هيكلية-مجلدات-المشروع)
-5. [المتطلبات التقنية وبيئة العمل (Prerequisites)](#-المتطلبات-التقنية-وبيئة-العمل)
-6. [الإعداد والربط مع الخادم (Configuration)](#-الإعداد-والربط-مع-الخادم)
-7. [البناء والتشغيل (Build & Run)](#-البناء-والتشغيل)
-8. [سجل نقاط النهاية المتصلة (Network API Integration)](#-سجل-نقاط-النهاية-المتصلة)
+The client acts as the edge monitoring component of the University of Jeddah Safe Kids Guard ecosystem (2026/2027), communicating directly with the **FastAPI AI Backend** and syncing with the **Next.js Parent Dashboard**.
 
 ---
 
-## 🚀 المزايا والقدرات التقنية
-
-* **خدمة الوصول المتقدمة للرصد الحي (`MonitoringAccessibilityService`):**
-  * مراقبة تبدلات النصوص المعروضة داخل التطبيقات والمتصفحات (`TYPE_WINDOW_CONTENT_CHANGED` و `TYPE_VIEW_TEXT_CHANGED`).
-  * تفتيش تكراري ذكي للشجرة البصرية لواجهة المستخدم (Accessibility Node Tree).
-* **حماية صارمة للخصوصية (Privacy by Design):**
-  * تجاهل واستثناء حقول كلمات المرور والبيانات الحساسة كلياً (`node.isPassword == true`).
-  * عدم حفظ نصوص التصفح الشخصية؛ يقتصر الإرسال على عينات مقتطعة ومطابقة للتهديدات فقط.
-* **التكامل اللحظي مع خادم الذكاء الاصطناعي:**
-  * إرسال النصوص المشبوهة لمحرك الفحص المزدوج (**AraBERT v2 + CAMeLBERT**).
-  * استلام القرار اللحظي (`ALLOWED` أو `BLOCKED`) بنسبة ثقة دقيقة خلال أقل من 100 ميلي ثانية.
-* **مزامنة سياسات ولي الأمر محلياً:**
-  * جلب وتطبيق قواعد الحظر الأبوية (فئات التهديد، حظر حزم تطبيقات معينة مثل TikTok أو Instagram، وحدود وقت الشاشة).
-* **الاستمرارية والتشغيل التلقائي (`BootReceiver`):**
-  * إعادة تفعيل خدمات الحماية والمراقبة تلقائياً عند إعادة تشغيل الهاتف (`BOOT_COMPLETED`).
-* **واجهة مستخدم عصرية بـ Jetpack Compose Material 3:**
-  * تصميم عربي مريح وداعم لـ RTL بألوان الهوية الرسمية (Navy Blue & Cyan).
-  * شاشات سهلة لإرشاد ولي الأمر أثناء منح الصلاحيات وربط جهاز الطفل برمز الاقتران (PIN / Token).
+## 📑 Table of Contents
+1. [Technical Highlights & Capabilities](#-technical-highlights--capabilities)
+2. [Inspection & Protection Flow (How It Works)](#-inspection--protection-flow-how-it-works)
+3. [Android Permissions & Privacy by Design](#-android-permissions--privacy-by-design)
+4. [Project Directory Structure](#-project-directory-structure)
+5. [Prerequisites & Development Environment](#-prerequisites--development-environment)
+6. [Backend API Configuration](#-backend-api-configuration)
+7. [Build & Installation](#-build--installation)
+8. [Network API Integration](#-network-api-integration)
 
 ---
 
-## 🔍 آلية الرصد والحماية (How It Works)
+## 🚀 Technical Highlights & Capabilities
+
+* **Intelligent Accessibility Engine (`MonitoringAccessibilityService`):**
+  * Monitors on-screen UI changes across browsers and apps (`TYPE_WINDOW_CONTENT_CHANGED` and `TYPE_VIEW_TEXT_CHANGED`).
+  * Performs recursive traversal of the accessibility node hierarchy.
+  * Employs a 2-second debounce and deduplication buffer to eliminate battery drain.
+* **Privacy by Design:**
+  * Password and secure credential fields are skipped automatically (`node.isPassword == true`).
+  * Personal browsing history is never stored locally or transmitted in full; only bounded snippets of intercepted threats are processed.
+* **Low-Latency Edge Mediation:**
+  * Offloads classification requests to the dual-model AI backend (**AraBERT v2 + CAMeLBERT**).
+  * Executes fast-path local policy checks (blocked packages, bedtimes, blacklisted URLs) with immediate remediation.
+  * Dismisses harmful content instantly using `GLOBAL_ACTION_HOME`.
+* **Periodic Policy Synchronization:**
+  * Periodically polls `GET /policies/{child_id}` to keep local blocking rules up to date.
+* **Persistent Service Lifecycle (`BootReceiver`):**
+  * Re-arms monitoring services on device reboot (`BOOT_COMPLETED`).
+* **Material 3 Jetpack Compose Interface:**
+  * Modern RTL Arabic UI themed with official brand colors (Navy & Cyan).
+  * 6-digit PIN pairing wizard and parent-password protected unpairing.
+
+---
+
+## 🔍 Inspection & Protection Flow (How It Works)
 
 ```
-       تطبيق على جهاز الطفل (تيك توك / يوتيوب / متصفح)
-                             │
-                             ▼ (حدث تغير النص على الشاشة)
-             [MonitoringAccessibilityService]
-                             │
-                             ├─ هل الحقل كلمة مرور أو حساس؟ ──▶ [تجاهل فوري للخصوصية]
-                             │
-                             ▼ (نص عادي > 3 أحرف)
-          اقتطاع النص وتجهيز سياق التطبيق (Context App)
-                             │
-                             ▼ (Retrofit POST /classification/predict)
-                   [FastAPI AI Backend]
-                             │
-               ┌─────────────┴─────────────┐
-               ▼                           ▼
-        [قرار: ALLOWED]             [قرار: BLOCKED]
-         استمرار التصفح          1. حجب المحتوى على شاشة الطفل
-                                2. تسجيل الحدث في سجل الأنشطة
-                                3. إرسال تنبيه واتساب فوري للوالد
+        Active App on Child Device (TikTok / YouTube / Browser)
+                              │
+                              ▼ (On-screen text update event)
+              [MonitoringAccessibilityService]
+                              │
+                              ├─ Password or sensitive field? ──▶ [Immediate Privacy Bypass]
+                              │
+                              ▼ (Visible text > 3 characters)
+           Extract text snippet and capture app package context
+                              │
+                              ▼ (Retrofit POST /classification/predict)
+                    [FastAPI AI Backend]
+                              │
+                ┌─────────────┴─────────────┐
+                ▼                           ▼
+        [Decision: ALLOWED]         [Decision: BLOCKED]
+          Continue browsing          1. Dismiss app to home screen (GLOBAL_ACTION_HOME)
+                                     2. Log violation in audit table
+                                     3. Trigger instant WhatsApp alert to parent
 ```
 
 ---
 
-## 🔒 الأذونات المطلوبة وسياسة الخصوصية
+## 🔒 Android Permissions & Privacy by Design
 
-يطلب التطبيق حزمة محددة من أذونات أندرويد لضمان استمرارية الحماية دون انتهاك خصوصية الطفل:
+The application requests a minimal set of Android system permissions to operate effectively:
 
-| الإذن البرمجي | الغرض والوظيفة |
+| Permission | Purpose & Scope |
 |---|---|
-| `android.permission.INTERNET` | التواصل مع خادم الذكاء الاصطناعي وإرسال الأنشطة وتلقي القرارات. |
-| `android.permission.BIND_ACCESSIBILITY_SERVICE` | قراءة محتوى الشاشة البريء واكتشاف النصوص المؤذية والمسيئة. |
-| `android.permission.PACKAGE_USAGE_STATS` | تتبع معدل استخدام التطبيقات وحساب وقت الشاشة اليومي للطفل. |
-| `android.permission.RECEIVE_BOOT_COMPLETED` | ضمان استئناف خدمة الحماية تلقائياً بمجرد إقلاع النظام. |
-| `android.permission.FOREGROUND_SERVICE` | إبقاء التطبيق يعمل في الخلفية دون أن يوقفه نظام أندرويد لتوفير البطارية. |
-| `android.permission.POST_NOTIFICATIONS` | إظهار إشعارات النظام الدائمة للمحافظة على شفافية العمل أمام الطفل والوالد. |
+| `android.permission.INTERNET` | Communicates with the FastAPI backend for classification and policy synchronization. |
+| `android.permission.BIND_ACCESSIBILITY_SERVICE` | Inspects on-screen text nodes to identify harmful content. |
+| `android.permission.PACKAGE_USAGE_STATS` | Tracks foreground application usage to enforce daily screen-time allowances. |
+| `android.permission.RECEIVE_BOOT_COMPLETED` | Automatically re-engages protection services following device restart. |
+| `android.permission.FOREGROUND_SERVICE` | Prevents the OS from terminating the monitoring service under memory pressure. |
+| `android.permission.POST_NOTIFICATIONS` | Displays a persistent status notification to ensure total transparency. |
 
 ---
 
-## 📁 هيكلية مجلدات المشروع
+## 📁 Project Directory Structure
 
 ```
 client/child_monitoring_app/
 ├── app/
-│   ├── build.gradle.kts           # إعدادات الحزم، Compose، Hilt، والـ SDK
-│   ├── proguard-rules.pro         # قواعد حماية وتقليص الكود للإنتاج
+│   ├── build.gradle.kts           # Dependencies, Compose, Hilt, and Android SDK configuration
+│   ├── proguard-rules.pro         # Proguard / R8 optimization rules
 │   └── src/
 │       └── main/
-│           ├── AndroidManifest.xml # تسجيل الأنشطة، الخدمات، والأذونات
+│           ├── AndroidManifest.xml # Service declarations, activities, and permissions
 │           ├── java/sa/safekids/guard/
-│           │   ├── SafeKidsGuardApp.kt  # فئة التطبيق الرئيسية وتهيئة Hilt
+│           │   ├── SafeKidsGuardApp.kt  # Application entrypoint & Hilt container setup
+│           │   ├── data/
+│           │   │   └── SessionManager.kt # EncryptedSharedPreferences credentials store
 │           │   ├── network/
-│           │   │   └── ApiService.kt    # واجهات Retrofit للتواصل مع الخادم
+│           │   │   ├── ApiClient.kt     # Retrofit client with sanitized headers
+│           │   │   └── ApiService.kt    # Endpoint contracts and data models
 │           │   ├── receiver/
-│           │   │   └── BootReceiver.kt  # مستقبل إعادة تشغيل الجهاز
+│           │   │   └── BootReceiver.kt  # System boot completion broadcast receiver
 │           │   ├── service/
-│           │   │   └── MonitoringAccessibilityService.kt # خدمة رصد الشاشة
+│           │   │   └── MonitoringAccessibilityService.kt # Real-time screen text listener
 │           │   └── ui/
-│           │       ├── MainActivity.kt  # واجهة Compose لحالة الحماية والربط
-│           │       └── theme/           # ألوان وخطوط الهوية البصرية (Theme)
+│           │       ├── MainActivity.kt  # Compose UI: 6-digit pairing & status monitor
+│           │       └── theme/           # Color palette and typography definitions
 │           └── res/
-│               ├── values/              # النصوص والألوان
-│               └── xml/                 # إعدادات Accessibility Service
+│               ├── values/              # Strings, colors, styles
+│               └── xml/                 # Accessibility service capabilities descriptor
 ├── gradle/
-│   └── libs.versions.toml         # سجل إصدارات الحزم الموحدة (Version Catalog)
-├── build.gradle.kts               # إعدادات مشروع أندرويد العام
-├── gradle.properties              # إعدادات ذاكرة Gradle وJVM
-└── settings.gradle.kts            # ربط مستودعات Maven والموديولات
+│   └── libs.versions.toml         # Gradle version catalog
+├── build.gradle.kts               # Root project build script
+├── gradle.properties              # JVM and build performance settings
+└── settings.gradle.kts            # Repository and module mappings
 ```
 
 ---
 
-## 💻 المتطلبات التقنية وبيئة العمل
+## 💻 Prerequisites & Development Environment
 
-* **Android Studio:** إصدار **Ladybug (2024.2+)** أو **Meerkat** أو أحدث.
-* **JDK:** إصدار **Java 17 (LTS)**.
+* **Android Studio:** **Ladybug (2024.2+)**, **Meerkat**, or newer.
+* **JDK:** **Java 17 (LTS)**.
 * **Android SDK:**
   * **Compile SDK:** 35 (Android 15)
   * **Target SDK:** 35
-  * **Min SDK:** 26 (Android 8.0 Oreo وما فوق - يغطي أكثر من 95% من الأجهزة النشطة).
+  * **Min SDK:** 26 (Android 8.0 Oreo+ — covering >95% of active devices).
 
 ---
 
-## ⚙️ الإعداد والربط مع الخادم
+## ⚙️ Backend API Configuration
 
-يتم ضبط رابط خادم الـ Backend داخل إعدادات شبكة Retrofit في التطبيق:
+Set the backend server URL in the application's network configuration:
 
-### 1. أثناء التطوير على محاكي أندرويد (Android Emulator)
-يشير المحاكي إلى جهاز الحاسب المضيف عبر العنوان الافتراضي:
+### 1. Android Emulator (Local Host)
+The Android Emulator maps the host machine's `localhost` to `10.0.2.2`:
 ```kotlin
 const val BASE_URL = "http://10.0.2.2:8000/"
 ```
 
-### 2. أثناء الفحص على هاتف أندرويد حقيقي عبر Wi-Fi
-قم بوضع عنوان الـ IP المحلي لجهاز الكمبيوتر الذي يشغل خادم FastAPI (مثال):
+### 2. Physical Android Device (Local Wi-Fi Network)
+Use the local IP address of your host machine running the FastAPI server:
 ```kotlin
 const val BASE_URL = "http://192.168.1.50:8000/"
 ```
 
-### 3. بيئة الإنتاج السحابية (Cloud Run / VPS)
+### 3. Production Deployment (Cloud Run / VPS)
 ```kotlin
 const val BASE_URL = "https://api.safekidsguard.uj.edu.sa/"
 ```
 
 ---
 
-## 🔨 البناء والتشغيل
+## 🔨 Build & Installation
 
-### عبر موجه الأوامر (Terminal / Gradle Wrapper):
+### Using Gradle Wrapper:
 ```bash
-# الانتقال إلى مجلد التطبيق
+# Navigate to Android project directory
 cd client/child_monitoring_app
 
-# بناء نسخة التطوير (Debug APK):
+# Build debug APK:
 ./gradlew assembleDebug
 
-# تثبيت التطبيق مباشرة على المحاكي أو الهاتف المتصل:
+# Install on connected device or running emulator:
 ./gradlew installDebug
 ```
 
-### مراقبة سجلات الرصد الحية (Logcat Monitoring):
-لمتابعة النصوص التي يتم رصدها وفحصها لحظياً:
+### Live Logcat Monitoring:
+Filter logs to observe real-time classification events:
 ```bash
 adb logcat -s SafeKidsGuard_Monitor
 ```
 
 ---
 
-## 📡 سجل نقاط النهاية المتصلة (Network API Integration)
+## 📡 Network API Integration
 
-يتواصل التطبيق مع خادم FastAPI عبر الواجهة المعرفة في `ApiService.kt`:
+The Android client integrates with the following FastAPI endpoints (defined in `ApiService.kt`):
 
-| الدالة | المسار (Endpoint) | وظيفة الاستدعاء في التطبيق |
+| Method | Endpoint | Application Role |
 |---|---|---|
-| `POST` | `/auth/pair-device` | ربط جهاز الطفل برمز الاقتران المكون من 6 أرقام واستلام جلسة JWT المشفرة. |
-| `POST` | `/auth/unpair-device` | التحقق من كلمة مرور ولي الأمر قبل السماح بإلغاء اقتران الجهاز. |
-| `POST` | `/classification/predict` | إرسال النص المعروض على الشاشة للفحص اللحظي بالذكاء الاصطناعي. |
-| `POST` | `/alerts/request-access` | إرسال طلب مراجعة / سماح بالوصول من شاشة الحظر لولي الأمر (`UC-C5`). |
-| `GET` | `/policies/{child_id}` | مزامنة سياسة الحماية دورياً (التطبيقات والمواقع المحظورة، وقت الشاشة، ساعات النوم). |
-| `POST` | `/activity` | تسجيل الأنشطة اليومية في قاعدة البيانات ليتمكن الوالد من مراجعتها. |
+| `POST` | `/auth/pair-device` | Pairs device using parent-generated 6-digit PIN and retrieves child JWT. |
+| `POST` | `/auth/unpair-device` | Verifies parent password before permitting device unpairing. |
+| `POST` | `/classification/predict` | Sends on-screen text snippets for real-time AI classification and policy enforcement. |
+| `POST` | `/alerts/request-access` | Submits child access appeal when content or app is blocked by mistake (`UC-C5`). |
+| `GET` | `/policies/{child_id}` | Synchronizes active safety policy (app/URL blacklist, screen-time, bedtimes). |
+| `POST` | `/activity` | Logs daily usage events for parent review on the dashboard. |
 
 ---

@@ -1,6 +1,6 @@
-# Safe Kids Guard (حارس الأطفال الآمن) 🛡️👨‍👩‍👧‍👦
+# Safe Kids Guard 🛡️👨‍👩‍👧‍👦
 
-> **منصة متكاملة قائمة على الذكاء الاصطناعي للرقابة الأبوية وحماية الأطفال من المحتوى الضار باللغة العربية**  
+> **An Intelligent AI-Powered Parental Control & Child Safety Platform for Arabic Digital Content**
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_Python_3.11-009688.svg)](server/)
 [![Next.js](https://img.shields.io/badge/Dashboard-Next.js_16_Turbopack-black.svg)](client/Dashboard/)
@@ -13,159 +13,204 @@
 
 ---
 
-## 🌟 نبذة عن المشروع (Project Overview)
+## 🌟 Project Overview
 
-مع تزايد استخدام الأطفال في العالم العربي للهواتف الذكية ومنصات التواصل الاجتماعي، برزت تحديات كبرى تتعلق بالتعرض لـ **التنمر الإلكتروني (Cyberbullying)**، **المحتوى الجنسي غير اللائق (Sexual Content)**، **العنف والتهديد (Violence)**، و**خطاب الكراهية والعنصرية (Hate Speech)**، خاصة مع وجود خصوصية لغوية معقدة تشمل (اللهجات الدارجة المحكية، إزالة التشكيل، التطويل، والأرابيزي / الفرانكو).
+With the rapid adoption of smartphones and social media among children in the Arabic-speaking world, major safety challenges have emerged—including exposure to **Cyberbullying**, **Inappropriate/Sexual Content**, **Violence & Self-Harm**, and **Hate Speech**. Arabic content presents distinct linguistic hurdles, including spoken colloquial dialects, unvocalized text (omitted Tashkeel), letter stretching (Tatweel), and Arabizi (Latin-script Arabic).
 
-يهدف مشروع **Safe Kids Guard** إلى سد هذه الفجوة عبر تقديم منظومة ذكية متكاملة ثلاثية الأبعاد:
-1. **تطبيق أندرويد على جهاز الطفل (`client/child_monitoring_app/`):** يرصد النصوص المعروضة على الشاشة لحظياً عبر خدمة الوصول (`AccessibilityService`) مع نافذة تهدئة ذكية (**2-Second Debounce & Deduplication**) لمنع استنزاف البطارية، حماية خصوصية الطفل بتخطي حقول كلمات المرور، وتدخل وقائي فوري بإغلاق التطبيق المخالف (`GLOBAL_ACTION_HOME`) فور رصد التهديد.
-2. **خادم الذكاء الاصطناعي والوساطة (`server/`):** يعالج النصوص العربية عبر خط معالجة متقدم، ويفحصها باستخدام نموذج لغوي مزدوج (**AraBERT v2 + CAMeLBERT**) عبر مسارات غير معطلة للـ Event Loop (`asyncio.to_thread`)، محمي بنظام تقييد معدل الطلبات (**SlowAPI Rate Limiting**)، ويدعم مرونة قواعد البيانات (**SQLite** محلياً بدون إعداد، أو **XAMPP MySQL**، أو **PostgreSQL**).
-3. **لوحة تحكم تفاعلية لولي الأمر (`client/Dashboard/`):** واجهة ويب تقدمية (PWA) مبنية بـ **Next.js 16** و **Tailwind v4** بخط **Cairo** العربي، متصلة **ببيانات حية مباشرة من الخادم** (الأجهزة المقترنة، الرسائل المفحوصة، التنبيهات اللحظية، وتصدير التقارير الرسمية PDF).
+**Safe Kids Guard** addresses this challenge through an integrated, three-tier architecture:
+
+1. **Android Child Monitoring App (`client/child_monitoring_app/`):** Observes on-screen text in real time using Android's `AccessibilityService` with a 2-second debounce and deduplication window to prevent battery drain. It protects privacy by ignoring password fields, and takes immediate protective action (returning to home via `GLOBAL_ACTION_HOME`) upon detecting harmful content.
+2. **AI & Mediation Backend (`server/`):** Processes Arabic text through an advanced preprocessing pipeline and evaluates it with a dual-tier NLP architecture (**AraBERT v2 + CAMeLBERT**) executed off the event loop via `asyncio.to_thread`. It features **SlowAPI** rate limiting and flexible database support (**SQLite** by default with zero configuration, **XAMPP MySQL**, or **PostgreSQL**).
+3. **Parent & Administrator Dashboard (`client/Dashboard/`):** A responsive Progressive Web App (PWA) built with **Next.js 16**, **React 19**, and **Tailwind CSS v4** using the Arabic **Cairo** typography. Connected to live backend APIs for device pairing, real-time activity logs, threat alerts, and Arabic-formatted PDF reports.
 
 ---
 
-## 🏗️ الهيكل المعماري للنظام (System Architecture)
+## 🏗️ System Architecture
 
 ```
-                            [ جهاز الطفل - Android Kotlin App ]
-                     (MonitoringAccessibilityService + 2s Debounce)
-                                           │
-                                           │ 1. إرسال النص المعروض لحظياً
-                                           ▼ (POST /api/v1/classification/predict)
+                             [ Child Device - Android Kotlin App ]
+                      (MonitoringAccessibilityService + 2s Debounce)
+                                            │
+                                            │ 1. Real-time on-screen text inspection
+                                            ▼ (POST /api/v1/classification/predict)
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        خادم المنظومة (FastAPI Backend + SlowAPI)                       │
+│                        Backend Server (FastAPI + SlowAPI)                              │
 │                                                                                        │
-│  [1. معالجة النصوص] ────▶ [2. كاش Redis] ────▶ [3. الذكاء الاصطناعي] ────▶ [4. السياسات]│
-│  • تنظيف التشكيل          • بصمة SHA-256         • AraBERT v2 (الفصحى)     • حساسية AI  │
-│  • إزالة التطويل          • استجابة < 1ms        • CAMeLBERT (اللهجات)     • حظر فئات   │
-│  • تحويل الأرابيزي        • TTL 24 ساعة          • Fast-Path Heuristics    • حظر تطبيقات│
-│  • فلترة حقول السرية      • Graceful Fallback    • Async Thread Executor   • Rate Limits│
+│  [1. Preprocessing] ───▶ [2. Redis Cache] ────▶ [3. AI Engine] ─────▶ [4. Policies]   │
+│  • Tashkeel removal       • SHA-256 fingerprint  • AraBERT v2 (MSA)    • Sensitivity   │
+│  • Tatweel removal        • Latency < 1ms        • CAMeLBERT (Dialect) • Category block│
+│  • Arabizi conversion     • TTL: 24 hours        • Fast-Path Regex     • App blacklist │
+│  • HTML / password filter • Graceful fallback    • Async thread worker • URL blacklist │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                     ┌───────────────────────┴───────────────────────┐
-                    ▼ (في حال رصد محتوى محظور)                       ▼ (تحديث السجلات والبيانات)
-       [ شبكة التنبيهات الفورية ]                       [ قاعدة البيانات (SQLAlchemy 2.0 Async) ]
-       • WhatsApp Business Cloud API (أساسي)             • SQLite (safekids_dev.db - افتراضي محلي)
-       • FCM Web Push (احتياطي)                          • XAMPP MySQL أو PostgreSQL
-       • إغلاق فوري للتطبيق بالطفل                       • المستخدمين، الأسر، والسياسات
-                    │                                    • سجل الأنشطة والتهديدات (Alerts & Activity)
-                    ▼                                                       │
-       [ هاتف ولي الأمر المحمول ]                                            │
-       (رسالة واتساب رسمية فورية)                                            ▼
-                                                        [ لوحة تحكم ولي الأمر (Next.js Dashboard) ]
-                                                        • متابعة حية ومباشرة للأنشطة وسجل التنبيهات
-                                                        • تخصيص وضبط سياسات الأمان لكل طفل
-                                                        • تحليلات ورسوم بيانية + تصدير تقارير PDF
+                    ▼ (When harmful content is detected)             ▼ (Audit logging & state update)
+       [ Real-Time Alert Dispatch ]                     [ Database (SQLAlchemy 2.0 Async) ]
+       • Meta WhatsApp Cloud API (Primary)              • SQLite (safekids_dev.db - local default)
+       • Firebase Cloud Messaging (Web Push)            • XAMPP MySQL or PostgreSQL
+       • Immediate local app dismissal on child device  • Users, Families, Policies, Members
+                    │                                   • Alerts & Child Activity Logs
+                    ▼                                                   │
+       [ Parent Mobile Device ]                                         │
+       (Instant WhatsApp Alert)                                         ▼
+                                                        [ Parent Dashboard (Next.js) ]
+                                                        • Live activity feed & alerts review
+                                                        • Child policy configuration & schedules
+                                                        • Analytics charts & Arabic PDF exports
 ```
 
 ---
 
-## 📂 مكونات المستودع (Repository Components)
+## 📂 Repository Components
 
-ينقسم المشروع إلى 3 مكونات برمجية رئيسية مستقلة ومتكاملة:
+The repository is organized into three decoupled, complementary components:
 
 ```
 SafeKidsGuard/
-├── server/                     # خادم الذكاء الاصطناعي وقواعد البيانات ومسارات الـ REST API
-│   ├── app/                    # الكود المصدري (auth, ai_engine, content_filter, alerts, policies, activity, reports, admin)
-│   ├── alembic/                # ترحيل وإدارة بنية قاعدة البيانات
-│   ├── tests/                  # حزمة الاختبارات الآلية (39 اختباراً ناجحاً بنسبة 100%)
-│   └── README.md               # 📄 التوثيق الشامل للخادم ومتغيرات البيئة
+├── server/                     # FastAPI AI engine, database models, and RESTful APIs
+│   ├── app/                    # Application source (auth, ai_engine, content_filter, alerts, policies, activity, reports, admin)
+│   ├── alembic/                # Database schema migrations
+│   ├── tests/                  # Automated pytest suite (39/39 passing tests, 100%)
+│   └── README.md               # 📄 Comprehensive server documentation & environment variables
 │
 ├── client/
-│   ├── Dashboard/              # لوحة تحكم ولي الأمر والمشرف بـ Next.js 16 + React 19 + Tailwind v4 + Cairo RTL
-│   │   ├── src/app/            # الصفحات ((parent): dashboard, alerts, children, activity, policies, reports, notifications | (admin): users, models, flagged, settings)
-│   │   ├── src/middleware.ts   # حماية المسارات والتحقق من الصلاحيات (RBAC Middleware)
-│   │   ├── public/             # الأصول الثابتة، PWA Manifest، و Firebase Service Worker
-│   │   └── README.md           # 📄 التوثيق الشامل للوحة التحكم ونظام الألوان
+│   ├── Dashboard/              # Parent & Admin web portal (Next.js 16 + React 19 + Tailwind v4 + Cairo)
+│   │   ├── src/app/            # App routes ((parent): dashboard, alerts, children, activity, policies, reports, notifications | (admin): users, models, flagged, settings)
+│   │   ├── src/middleware.ts   # Role-Based Access Control (RBAC) route middleware
+│   │   ├── public/             # Static assets, PWA manifest, and Firebase service worker
+│   │   └── README.md           # 📄 Dashboard documentation, theming & route structure
 │   │
-│   └── child_monitoring_app/   # تطبيق مراقبة وحماية جهاز الطفل بنظام Android (Kotlin + Compose M3)
-│       ├── app/src/main/       # كود التطبيق، AccessibilityService، EncryptedSharedPreferences، وواجهات Retrofit
-│       └── README.md           # 📄 التوثيق الشامل لتطبيق أندرويد والأذونات
+│   └── child_monitoring_app/   # Native Android protection client (Kotlin + Jetpack Compose M3)
+│       ├── app/src/main/       # Application code, AccessibilityService, EncryptedSharedPreferences, Retrofit
+│       └── README.md           # 📄 Android app documentation, permissions & pairing flow
 │
-├── docs/                       # وثائق المشروع، المتطلبات الأكاديمية، والتقرير النهائي
-├── docker-compose.yml          # ملف تشغيل المنظومة الكاملة محلياً (FastAPI + PostgreSQL + Redis + Dashboard)
-└── .github/workflows/ci.yml    # خط أنابيب الفحص والاختبار الآلي المستمر (CI/CD)
+├── docs/                       # Project documentation, academic requirements, and system diagrams
+├── docker-compose.yml          # Container orchestration (FastAPI + PostgreSQL + Redis + Dashboard)
+└── .github/workflows/ci.yml    # Continuous Integration (CI) automated testing workflow
 ```
 
 ---
 
-## ⚡ التشغيل السريع للمنظومة (Quickstart)
+## ⚡ Quickstart Guide
 
-يمكن تشغيل المنظومة بخيارين مرنين وفقاً لبيئة التطوير الخاصة بك:
+You can run the system locally using either a lightweight local setup or full Docker orchestration:
 
-### الخيار الأول: التشغيل المحلي السريع (بدون Docker وبقاعدة بيانات SQLite مدمجة)
-هذا الخيار هو الأسهل والأسرع للمطورين ومناقشي المشروع على أنظمة Windows/macOS دون الحاجة لتثبيت برمجيات خارجية:
+### Option 1: Local Development (Default SQLite, Zero External Dependencies)
 
-```bash
-# 1. تشغيل خادم الـ FastAPI (يستخدم قاعدة safekids_dev.db الجاهزة تلقائياً):
+A fresh clone requires Python 3.11 and Node.js 20+ (with npm). SQLite is the default database and requires zero installation.
+
+**Windows (PowerShell) — Backend:**
+
+```powershell
 cd server
-.\.venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 
-# 2. في نافذة طرفية أخرى، تشغيل لوحة تحكم ولي الأمر:
+# 1. Initialize environment configuration
+Copy-Item .env.example .env
+
+# 2. Apply database migrations & seed default admin
+alembic upgrade head
+python create_admin.py
+
+# 3. Start the FastAPI server
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+> [!NOTE]
+> If PowerShell blocks virtual environment script execution, run:  
+> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+
+**In a second terminal — Dashboard:**
+
+```powershell
 cd client/Dashboard
+npm install
+npm run dev
+```
+
+**macOS / Linux:**
+```bash
+# Terminal 1 — Backend:
+cd server
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+cp .env.example .env
+alembic upgrade head
+python create_admin.py
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2 — Dashboard:
+cd client/Dashboard
+npm install
 npm run dev
 ```
 
 > [!TIP]
-> يدعم الخادم التبديل الفوري إلى **XAMPP MySQL** بتعديل سطر واحد فقط في `server/.env`:
+> The backend supports instant switching to **XAMPP MySQL** by updating one line in `server/.env`:  
 > `DATABASE_URL=mysql+aiomysql://root:@localhost:3306/safekidsguard`
 
 ---
 
-### الخيار الثاني: التشغيل الكامل عبر Docker Compose
-لتشغيل بيئة الإنتاج الشاملة (FastAPI + PostgreSQL + Redis + Dashboard):
+### Option 2: Full Docker Compose Environment
+
+Launches the complete production stack (FastAPI + PostgreSQL + Redis + Dashboard):
 
 ```bash
-# 1. استنساخ المستودع والدخول لمجلده
+# 1. Clone repository and enter directory
 git clone https://github.com/AzizAlAdny/SafeKidsGuard.git
 cd SafeKidsGuard
 
-# 2. تشغيل كافة الخدمات بحاويات معزولة
-docker compose up --build
+# 2. Build and start all services including the Next.js Dashboard:
+docker compose --profile full up --build
 ```
 
-* **لوحة تحكم ولي الأمر والمشرف (Next.js):** [http://localhost:3000](http://localhost:3000)
-* **واجهة التوثيق التفاعلية للـ API (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
-* **المسار القياسي الموحد (API v1):** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-* **فحص صحة الخادم (Health Check):** [http://localhost:8000/health](http://localhost:8000/health)
+* **Parent & Admin Dashboard (Next.js):** [http://localhost:3000](http://localhost:3000)
+* **Interactive API Documentation (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Standard API Base Path (v1):** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+* **Backend Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### 🔑 بيانات تسجيل الدخول الجاهزة للتجربة (Default Credentials)
-| الدور (Role) | البريد الإلكتروني | كلمة المرور | الوجهة التلقائية بعد الدخول |
+### 🔑 Default Credentials for Evaluation
+
+| Role | Email | Password | Post-Login Landing Page |
 |---|---|---|---|
-| **مشرف النظام (Admin)** | `admin@safekids.local` | `Admin@123456` | `/admin` (إدارة الحسابات، المقاييس، فحص النماذج) |
-| **ولي الأمر (Parent)** | `aziz@gmail.com` | كلمة المرور المسجلة | `/dashboard` (متابعة الأبناء، التنبيهات، السياسات) |
+| **System Administrator (Admin)** | `admin@safekids.local` | `Admin@123456` | `/admin` (User management, AI metrics, content moderation) |
+| **Parent** | `aziz@gmail.com` | User registered password | `/dashboard` (Child monitoring, alerts, policies) |
 
 > [!NOTE]
-> لإنشاء حساب مشرف إضافي أو ترقية أي مستخدم موجود عبر سطر الأوامر:
+> To create an additional administrator or promote any existing registered user:  
 > `cd server && python create_admin.py --promote aziz@gmail.com`
 
 ---
 
-## 🧪 حالة الاختبارات والجودة (Testing & Quality Assurance)
+## 🧪 Testing & Quality Assurance
 
-تم إخضاع كافة وحدات النظام لاختبارات دقيقة تغطي جميع سيناريوهات الاستخدام والأمان:
+All system modules are backed by automated tests covering functionality, edge cases, and security:
 
-### 1. الخادم والواجهة الخلفية (`server/tests`):
-* **39 اختباراً من أصل 39 ناجحة بنسبة 100%**:
-  * `test_auth.py` (10 اختبارات): التسجيل، تسجيل الدخول، أرقام الهواتف السعودية، تدوير رموز JWT، استرجاع أجهزة الأطفال `GET /auth/children`، فحص توافقية مسارات `/api/v1/`، واختبار نظام تقييد الطلبات (SlowAPI Rate Limiting - 429).
-  * `test_preprocessing.py` (6 اختبارات): تنظيف النصوص العربية، إزالة وسوم HTML، التشكيل، الكشيدة، الأرابيزي (مع الحفاظ على الأرقام الصرفة)، واختزال التكرار.
-  * `test_classification.py` (6 اختبارات): دقة تصنيف الفئات الخمس، التنبيه التلقائي عبر الواتساب، والتحقق من صحة معرّف الطفل UUID.
-  * `test_notifications.py` (3 اختبارات): تفضيلات التنبيهات واختبار رسائل الواتساب الرسمية.
-  * `test_policies.py` (2 اختباران): سياسات الحظر، الحساسية، وصلاحيات الوصول.
-  * `test_activity.py` (1 اختبار): تسجيل أحداث التصفح وتطبيق استثناءات السياسة.
-  * `test_reports.py` (1 اختبار): الإحصائيات التحليلية وتصدير ملفات PDF عربية صالحة وسليمة ثنائياً (`%PDF-`).
-  * `test_security_and_admin.py` (10 اختبارات شاملة): تشفير كلمات المرور العربية الطويلة (>72 بايت)، منع ثغرات IDOR والوصول غير المصرح به، ربط وفك اقتران جهاز الأندرويد برمز 6 أرقام (`POST /auth/pair-device`)، منع الإنذارات الكاذبة لكلمات تحتوي `"دم"` (`كرة القدم`، `القادم`، `خدمة`، `تبرع بالدم`)، طلبات السماح من الطفل (`UC-C5`)، وإدارة النظام الكاملة للمشرف (`Admin Module FR10–FR13`).
+### 1. Backend Automated Suite (`server/tests`)
+* **39 out of 39 tests passing (100%)**:
+  * `test_auth.py` (10 tests): Registration, login, Saudi phone format validation, JWT token rotation, child device queries, `/api/v1/` compatibility, and SlowAPI rate limiting (HTTP 429).
+  * `test_preprocessing.py` (6 tests): Arabic text normalization, HTML stripping, Tashkeel/Tatweel removal, Arabizi parsing (preserving standalone digits), and elongation reduction.
+  * `test_classification.py` (6 tests): Five-category classification accuracy, automated WhatsApp alert triggering, and UUID validation.
+  * `test_notifications.py` (3 tests): Notification preferences and WhatsApp Business API simulation.
+  * `test_policies.py` (2 tests): Sensitivity thresholds, category blocking rules, and access authorization.
+  * `test_activity.py` (1 test): Activity stream recording and custom policy bypass exceptions.
+  * `test_reports.py` (1 test): Summary analytics aggregation and valid binary Arabic PDF generation (`%PDF-`).
+  * `test_security_and_admin.py` (10 tests): Safe handling of long Arabic passwords (>72 bytes), IDOR prevention, 6-digit PIN device pairing and unpairing, false-positive prevention for benign Arabic roots (e.g. `كرة القدم`, `القادم`, `تبرع بالدم`), child access appeals (`UC-C5`), and the administrator control lifecycle (`FR10–FR13`).
 
-### 2. لوحة تحكم الويب (`client/Dashboard`):
-* تغطية كاملة لـ **18 مساراً وصفحة** (شاملة مسارات ولي الأمر `(parent)` ومسارات المشرف `(admin)` المحمية عبر `middleware.ts`) مع اتصال كامل ببيانات الخادم الحية.
+### 2. Frontend & Type Safety (`client/Dashboard`)
+* **18 distinct routes** verified across `(parent)` and `(admin)` layouts with server-side RBAC protection via [src/middleware.ts](client/Dashboard/src/middleware.ts).
 
 ---
 
-## 📑 روابط سريعة للتوثيق التفصيلي
+## 📑 Component Documentation Links
 
-* 📘 [دليل الخادم والذكاء الاصطناعي (Server README)](server/README.md)
-* 💻 [دليل لوحة تحكم ولي الأمر (Dashboard README)](client/Dashboard/README.md)
-* 📱 [دليل تطبيق أندرويد لرصد الشاشة (Android App README)](client/child_monitoring_app/README.md)
+* 📘 [Backend & AI Engine Guide (Server README)](server/README.md)
+* 💻 [Parent Dashboard Guide (Dashboard README)](client/Dashboard/README.md)
+* 📱 [Android Child Monitoring Client Guide (Android App README)](client/child_monitoring_app/README.md)
 
 ---

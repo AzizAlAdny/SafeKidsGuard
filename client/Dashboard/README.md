@@ -1,4 +1,4 @@
-# Safe Kids Guard — لوحة تحكم ولي الأمر (Parent Dashboard) 🖥️🛡️
+# Safe Kids Guard — Parent & Admin Dashboard 🖥️🛡️
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3.6_(Turbopack)-black.svg)](https://nextjs.org/)
 [![React 19](https://img.shields.io/badge/React-19.2.8-61DAFB.svg)](https://react.dev/)
@@ -8,152 +8,160 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple.svg)](https://web.dev/progressive-web-apps/)
 [![RTL Supported](https://img.shields.io/badge/Language-Arabic_RTL_(Cairo)-07365f.svg)](https://fonts.google.com/specimen/Cairo)
 
-**Safe Kids Guard Dashboard** هي بوابة ويب تقدمية (PWA) حديثة تم بناؤها باستخدام **Next.js 16 (App Router)** و **React 19** و **Tailwind CSS v4**، مصممة خصيصاً لأولياء الأمور لإدارة وتخصيص سياسات أمان الأبناء، متابعة سجلات الأنشطة الحية، استلام إشعارات الواتساب الفورية، وتحليل مؤشرات الأمان الرقمي.
+**Safe Kids Guard Dashboard** is a progressive web application (PWA) built with **Next.js 16 (App Router)**, **React 19**, and **Tailwind CSS v4**. It is tailored for parents to configure child safety policies, monitor real-time activity feeds, receive instant WhatsApp alerts, review safety analytics, and for administrators to manage accounts and review model performance.
 
-تمثل لوحة التحكم الواجهة البصرية الرئيسية لمشروع تخرج جامعة جدة (2026/2027)، ومصممة بأعلى معايير تجربة المستخدم (UI/UX) الداعمة كلياً للغة العربية (RTL) مع خط **Cairo** المعتمد.
-
----
-
-## 📑 جدول المحتويات
-1. [المزايا والصفحات المنجزة (Features & Pages)](#-المزايا-والصفحات-المنجزة)
-2. [الهوية البصرية ونظام الألوان (Design System)](#-الهوية-البصرية-ونظام-الألوان)
-3. [هيكلية مجلدات الواجهة (Project Structure)](#-هيكلية-مجلدات-الواجهة)
-4. [المتطلبات الأساسية (Prerequisites)](#-المتطلبات-الأساسية)
-5. [التثبيت والتشغيل المحلي (Quickstart)](#-التثبيت-والتشغيل-المحلي)
-6. [متغيرات البيئة (.env.local)](#-متغيرات-البيئة)
-7. [أوامر البناء والإنتاج (Build & Production)](#-أوامر-البناء-والإنتاج)
-8. [تطبيق الويب التقدمي (PWA & Service Worker)](#-تطبيق-الويب-التقدمي)
+The dashboard features native Right-to-Left (RTL) layout support using the Arabic **Cairo** font family and adheres to strict user experience standards.
 
 ---
 
-## 🌟 المزايا والصفحات المنجزة
+## 📑 Table of Contents
+1. [Implemented Routes & Features](#-implemented-routes--features)
+2. [Design System & Color Palette](#-design-system--color-palette)
+3. [Project Structure](#-project-structure)
+4. [Prerequisites](#-prerequisites)
+5. [Installation & Local Setup](#-installation--local-setup)
+6. [Environment Variables (.env.local)](#-environment-variables)
+7. [Build & Production Commands](#-build--production-commands)
+8. [Progressive Web App (PWA & Service Worker)](#-progressive-web-app)
 
-تحتوي لوحة التحكم على **18 صفحة ومساراً** (شاملة بوابة ولي الأمر وبوابة مشرف النظام) تم بناؤها بنجاح واختبارها:
+---
 
-| المسار | الصفحة | الوظيفة والميزات |
+## 🌟 Implemented Routes & Features
+
+The dashboard includes **18 verified routes** covering both the Parent portal and the Central Administration console:
+
+| Route | Page | Purpose & Core Capabilities |
 |---|---|---|
-| `/` | **بوابة الدخول الرئيسية** | توجيه ذكي للمستخدم بناءً على حالة تسجيل الدخول (Auth State). |
-| `/login` | **تسجيل الدخول** | تسجيل دخول ولي الأمر أو المشرف مع التوجيه التلقائي حسب الدور (`/dashboard` أو `/admin`). |
-| `/register` | **إنشاء حساب ولي أمر** | تسجيل حساب جديد مع **حقل التحقق الصارم لرقم الواتساب السعودي** (`966XXXXXXXXX`). |
-| `/dashboard` | **لوحة المؤشرات العامة** | بطاقات إحصائية للمؤشرات الحيوية، آخر التهديدات المرصودة، والأجهزة النشطة. |
-| `/alerts` | **سجل التنبيهات والتهديدات** | جدول مفصل بالتنبيهات المحظورة، نسب الثقة، والسياق مع إمكانية التصفية. |
-| `/children` | **إدارة حسابات الأبناء** | إضافة أطفال جدد، توليد رموز الاقتران الرسمية (6 أرقام)، واستعراض حالة الربط. |
-| `/activity` | **سجل النشاط المباشر** | جدول حي لمتابعة جميع النصوص المفحوصة (المسموحة والمحظورة) والتطبيق المستخدم. |
-| `/policies` | **سياسات الحماية وضوابط المحتوى** | قوالب جاهزة (أطفال/يافعين)، مفاتيح فئات الحظر، مزلاق حساسية AI، وحظر التطبيقات والمواقع. |
-| `/reports` | **التقارير التحليلية وتصدير PDF** | رسوم بيانية تفاعلية (Recharts) لمعدل الأمان وتوزيع التهديدات + زر تحميل تقرير PDF عربي. |
-| `/notifications` | **إعدادات الإشعارات (واتساب)** | تحديث رقم الواتساب المعتمد وتجربة إرسال رسائل فحص حية عبر Meta Cloud API. |
-| `/admin` | **لوحة الإدارة المركزية** | إحصائيات شاملة للنظام، عدد المستخدمين، عمليات الفحص، والتهديدات المحظورة (`FR13`). |
-| `/admin/users` | **إدارة حسابات المستخدمين** | البحث والتصفية وتفعيل/تعطيل أو حذف حسابات المستخدمين (`FR10, UC-A1`). |
-| `/admin/models` | **مراقبة نماذج الذكاء الاصطناعي** | متابعة حالة `AraBERTv2` و `CAMeLBERT` وتوزيع الفئات المسجلة (`FR11, UC-A2`). |
-| `/admin/flagged` | **مراجعة المحتوى المبلّغ** | معالجة التنبيهات وطلبات السماح من الأطفال وتصحيح الإيجابيات الخاطئة (`UC-A4, UC-C5`). |
-| `/admin/settings` | **إعدادات الأمان والنظام** | ضبط عتبة الثقة الافتراضية وتفعيل النماذج العصبية على مستوى المنظومة (`FR12, UC-A6`). |
+| `/` | **Landing / Root** | Smart redirection based on user authentication state. |
+| `/login` | **Sign In** | Role-based authentication redirecting parents to `/dashboard` and admins to `/admin`. |
+| `/register` | **Parent Registration** | New parent registration with strict Saudi WhatsApp validation (`966XXXXXXXXX`). |
+| `/dashboard` | **Parent Overview** | Real-time safety KPIs, recent threat feed, and paired device summary. |
+| `/alerts` | **Threat & Alerts Feed** | Filterable table of intercepted content, confidence scores, and context snippets. |
+| `/children` | **Child Account Manager** | Add children, issue official 6-digit pairing PINs, and monitor pairing status. |
+| `/activity` | **Live Activity Log** | Real-time audit log of inspected screen text (safe and blocked) and originating apps. |
+| `/policies` | **Protection Policies** | Preset templates (Child/Teen), category toggles, AI sensitivity slider, app and URL blacklists. |
+| `/reports` | **Analytics & PDF Export** | Interactive safety charts (Recharts) and on-demand Arabic BiDi PDF report generator. |
+| `/notifications` | **Alert Settings** | Manage recipient WhatsApp number and send instant live verification alerts. |
+| `/admin` | **Admin Command Center** | Macro-level system metrics: active users, total scans, and blocked threats (`FR13`). |
+| `/admin/users` | **User Management** | Search, filter, activate/deactivate, and delete accounts (`FR10, UC-A1`). |
+| `/admin/models` | **AI Model Telemetry** | Status monitor for `AraBERTv2` & `CAMeLBERT`, category counts, and model reloader (`FR11, UC-A2`). |
+| `/admin/flagged` | **Flagged Content Review** | Audit blocked content, process child access appeals, and approve false positives (`UC-A4, UC-C5`). |
+| `/admin/settings` | **System Governance** | Global confidence threshold adjustment and neural model toggle (`FR12, UC-A6`). |
 
 ---
 
-## 🎨 الهوية البصرية ونظام الألوان (Design System)
+## 🎨 Design System & Color Palette
 
-تم استخراج نظام الألوان بدقة من شعار المشروع الرسمي (Safe Kids Guard Logo) وتم تعريفه في متغيرات CSS لـ **Tailwind CSS v4** (`@theme`):
+The visual identity is derived directly from the official Safe Kids Guard branding and defined in **Tailwind CSS v4** `@theme` variables:
 
-* **الأزرق الداكن القيادي (Primary Navy):** `#07365f` و `#0b518e` (يعكس الأمان والاحترافية والوقار).
-* **السماوي والتركواز الحيوي (Vibrant Cyan):** `#159cb7` و `#1bc3e4` و `#76dbef` (للأزرار التفاعلية والتركيز).
-* **الأخضر الوقائي (Safe / Allowed):** `#2abe50` و `#eaf9ef` (للمحتوى السليم ومؤشرات الأمان العالية).
-* **الأحمر التنبيهي (Threat / Blocked):** `#e33a0a` و `#feebe6` (للمحتوى المحظور والتنبيهات العاجلة).
-* **البرتقالي التحذيري (Warning / Cyberbullying):** `#e5820a` و `#fff6eb` (للتنمر الإلكتروني والسب).
-* **الوردي الداكن (Sexual Content):** `#d81b60` و `#fde8ef` (للمحتوى غير اللائق والإباحي).
-* **الخلفيات الهادئة (Canvas):** `#f0fafc` و `#edf5f8` (مريحة للعين وتدعم القراءة الممتدة).
+* **Primary Navy:** `#07365f` and `#0b518e` (Communicates security, stability, and authority).
+* **Vibrant Cyan:** `#159cb7`, `#1bc3e4`, and `#76dbef` (Interactive controls, highlights, and primary actions).
+* **Safe / Allowed Green:** `#2abe50` and `#eaf9ef` (Benign content status and high safety scores).
+* **Threat / Blocked Red:** `#e33a0a` and `#feebe6` (Blocked content and critical alerts).
+* **Warning Orange:** `#e5820a` and `#fff6eb` (Cyberbullying warnings and review indicators).
+* **Sexual Content Pink:** `#d81b60` and `#fde8ef` (Inappropriate content indicators).
+* **Canvas Backgrounds:** `#f0fafc` and `#edf5f8` (High-contrast, eye-friendly layout surfaces).
 
 ---
 
-## 📁 هيكلية مجلدات الواجهة
+## 📁 Project Structure
 
 ```
 client/Dashboard/
 ├── public/
-│   ├── firebase-messaging-sw.js   # Service Worker لإشعارات المتصفح الفورية (FCM)
-│   ├── manifest.json              # إعدادات تطبيق الويب التقدمي (PWA Manifest)
-│   ├── logo.jpeg                  # شعار Safe Kids Guard الرسمي
+│   ├── firebase-messaging-sw.js   # FCM Service Worker for background push notifications
+│   ├── manifest.json              # Progressive Web App manifest definition
+│   ├── logo.jpeg                  # Official Safe Kids Guard brand emblem
 │   └── favicon.ico
 ├── src/
 │   ├── app/
-│   │   ├── (parent)/              # مجموعة مسارات ولي الأمر المحمية بـ Layout موحد
-│   │   │   ├── layout.tsx         # شريط التنقل الجانبي (Sidebar) والهيدر ودعم RTL
-│   │   │   ├── dashboard/page.tsx # لوحة التحكم الرئيسية
-│   │   │   ├── alerts/page.tsx    # سجل التنبيهات
-│   │   │   ├── children/page.tsx  # إدارة حسابات الأبناء
-│   │   │   ├── activity/page.tsx  # سجل النشاط المباشر
-│   │   │   ├── policies/page.tsx  # سياسات الرقابة الأبوية
-│   │   │   ├── reports/page.tsx   # التقارير التحليلية وتصدير PDF
-│   │   │   └── notifications/page.tsx # إعدادات الواتساب والتنبيهات
-│   │   ├── login/page.tsx         # صفحة تسجيل الدخول
-│   │   ├── register/page.tsx      # صفحة التسجيل والتحقق من الهاتف
-│   │   ├── globals.css            # استيراد خط Cairo وقواعد Tailwind v4
-│   │   ├── layout.tsx             # Root Layout مع تعيين dir="rtl" ولغة "ar"
-│   │   └── page.tsx               # نقطة الدخول الذكية
+│   │   ├── (auth)/                # Unauthenticated authentication layout
+│   │   │   ├── login/page.tsx     # Role-aware login view
+│   │   │   └── register/page.tsx  # Registration with phone validation
+│   │   ├── (parent)/              # Parent portal with persistent sidebar & RTL layout
+│   │   │   ├── layout.tsx         # Sidebar, navigation, and RTL direction wrapper
+│   │   │   ├── dashboard/page.tsx # Executive overview cards
+│   │   │   ├── alerts/page.tsx    # Threat alerts feed
+│   │   │   ├── children/page.tsx  # Child account & PIN pairing manager
+│   │   │   ├── activity/page.tsx  # Real-time activity audit log
+│   │   │   ├── policies/page.tsx  # Safety policies & sensitivity controls
+│   │   │   ├── reports/page.tsx   # Visual charts & PDF export button
+│   │   │   └── notifications/page.tsx # WhatsApp integration settings
+│   │   ├── (admin)/               # Administrator portal
+│   │   │   ├── layout.tsx         # Admin sidebar and header layout
+│   │   │   ├── admin/page.tsx     # Macro system health overview
+│   │   │   ├── admin/users/page.tsx # User account management
+│   │   │   ├── admin/models/page.tsx # AI model telemetry
+│   │   │   ├── admin/flagged/page.tsx # Content review and child appeals
+│   │   │   └── admin/settings/page.tsx # Global thresholds and system settings
+│   │   ├── globals.css            # Cairo typography imports and Tailwind v4 theme
+│   │   ├── layout.tsx             # Root document layout with dir="rtl" and lang="ar"
+│   │   └── page.tsx               # Root entrypoint redirector
+│   ├── middleware.ts              # Edge middleware enforcing role-based route access
 │   └── lib/
-│       ├── api.ts                 # عميل Axios مع معترض JWT والتجديد التلقائي للرموز
-│       ├── auth-store.ts          # إدارة حالة المستخدم عبر Zustand مع الحفظ المحلي
-│       └── utils.ts               # دوال المساعدة لدمج كلاسات Tailwind
-├── next.config.ts                 # إعدادات Next.js و Turbopack
-├── package.json                   # سجل الحزم والاعتمادات
-├── postcss.config.mjs             # إعدادات معالج CSS لـ Tailwind v4
-└── tsconfig.json                  # إعدادات مترجم TypeScript
+│       ├── api.ts                 # Axios instance with automatic JWT refresh interceptor
+│       ├── auth-store.ts          # Zustand authentication store with cookie synchronization
+│       └── utils.ts               # Tailwind class merge utilities
+├── Dockerfile                     # Standalone production container definition
+├── next.config.ts                 # Next.js and Turbopack compiler configuration
+├── package.json                   # Dependency manifests and build scripts
+└── tsconfig.json                  # TypeScript compiler options
 ```
 
 ---
 
-## 💻 المتطلبات الأساسية
+## 💻 Prerequisites
 
-* **Node.js:** إصدار **20.x (LTS)** أو أحدث (يوصى بـ v20 أو v22).
-* **NPM:** إصدار **10.x** أو أحدث.
+* **Node.js:** Version **20.x (LTS)** or newer (v20 or v22 recommended).
+* **NPM:** Version **10.x** or newer.
 
 ---
 
-## ⚡ التثبيت والتشغيل المحلي
+## ⚡ Installation & Local Setup
 
-### 1. الدخول لمجلد لوحة التحكم وتثبيت الحزم
+### 1. Install Dependencies
 ```bash
 cd client/Dashboard
 npm install
 ```
 
-### 2. إعداد ملف متغيرات البيئة (`.env.local`)
-أنشئ ملفاً باسم `.env.local` في المجلد وأضف الآتي:
+### 2. Configure Environment Variables (`.env.local`)
+Create `.env.local` in the dashboard folder:
 ```env
-# رابط خادم FastAPI
+# Backend API Base URL
 NEXT_PUBLIC_API_URL=http://localhost:8000
 
-# مفاتيح Firebase للمتصفح (FCM Web Push)
+# Firebase Web Push Configuration (Optional for local dev)
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-### 3. تشغيل خادم التطوير مع Turbopack
+### 3. Start Development Server with Turbopack
 ```bash
 npm run dev
 ```
-افتح المتصفح على: [http://localhost:3000](http://localhost:3000)
+Open your browser at: [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 🔨 أوامر البناء والإنتاج
+## 🔨 Build & Production Commands
 
 ```bash
-# فحص الأنواع واكتمال TypeScript وتوليد الصفحات الثابتة:
+# Typecheck TypeScript and compile production assets:
 npm run build
 
-# تشغيل النسخة المبنية للإنتاج:
+# Start production server:
 npm run start
 
-# فحص كود المشروع عبر ESLint:
+# Run ESLint validation:
 npm run lint
 ```
 
 ---
 
-## 📱 تطبيق الويب التقدمي (PWA & Service Worker)
+## 📱 Progressive Web App (PWA & Service Worker)
 
-* **التثبيت كتطبيق مستقل (Installable PWA):** يتيح ملف `manifest.json` للأب وأولياء الأمور تثبيت لوحة التحكم مباشرة كأيقونة تطبيق على الهواتف الذكية (iOS و Android) أو أجهزة سطح المكتب (Windows / Mac).
-* **خدمة إشعارات الخلفية (`firebase-messaging-sw.js`):** تتيح استقبال التنبيهات الفورية حتى في حال إغلاق تبويب المتصفح، مما يضمن بقاء الوالد على اطلاع دائم.
-
+* **Installable Application:** Supported via `manifest.json`, allowing parents to install the dashboard to mobile homescreens (Android / iOS) or desktops (Windows / macOS) as a standalone app.
+* **Background Notification Worker (`firebase-messaging-sw.js`):** Receives push alerts even when the browser tab is closed, ensuring parents never miss urgent safety warnings.
