@@ -24,13 +24,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # WhatsApp Business API
-    WA_PHONE_NUMBER_ID: str = ""
-    WA_ACCESS_TOKEN: str = ""
-    WA_VERIFY_TOKEN: str = ""
-    WA_API_VERSION: str = "v21.0"
-
-    # Firebase
+    # Firebase / Web Push
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
 
     # App

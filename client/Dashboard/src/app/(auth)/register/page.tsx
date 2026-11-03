@@ -9,11 +9,9 @@ import {
   Lock,
   Mail,
   User,
-  Phone,
   ArrowLeft,
   Loader2,
   AlertCircle,
-  MessageCircle,
   Eye,
   EyeOff,
   Check,
@@ -33,7 +31,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,23 +60,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    // Sanitize phone number (supports any country with international code or 05 local shorthand)
-    let cleanPhone = whatsappPhone.trim().replace(/[\s\-+()]/g, "");
-    if (cleanPhone.startsWith("00")) {
-      cleanPhone = cleanPhone.substring(2);
-    }
-    // Local Saudi shorthand convenience (05XXXXXXXX -> 9665XXXXXXXX)
-    if (cleanPhone.startsWith("05") && cleanPhone.length === 10) {
-      cleanPhone = "966" + cleanPhone.substring(1);
-    } else if (cleanPhone.startsWith("5") && cleanPhone.length === 9) {
-      cleanPhone = "966" + cleanPhone;
-    }
-
-    if (!/^\d{7,15}$/.test(cleanPhone)) {
-      setError("يرجى إدخال رقم هاتف صحيح مع رمز الدولة (مثال: +966501234567 أو +201012345678 أو 0501234567)");
-      return;
-    }
-
     // Password Policy Validation
     if (password.length < 8) {
       setError("يجب أن تكون كلمة المرور 8 خانات على الأقل وفقاً لسياسة الأمان");
@@ -105,7 +85,6 @@ export default function RegisterPage() {
         email,
         password,
         role: "parent",
-        whatsapp_phone: cleanPhone,
       });
 
       const { user, access_token, refresh_token } = resp.data;
@@ -115,7 +94,7 @@ export default function RegisterPage() {
       if (err.response?.status === 400) {
         setError(extractErrorMessage(err, "البريد الإلكتروني مسجل بالفعل مسبقاً"));
       } else if (err.response?.status === 422) {
-        setError(extractErrorMessage(err, "بيانات الإدخال غير صالحة. يرجى التأكد من صحة رقم الهاتف والبريد."));
+        setError(extractErrorMessage(err, "بيانات الإدخال غير صالحة. يرجى التأكد من صحة البريد وكلمة المرور."));
       } else {
         setError(extractErrorMessage(err, "حدث خطأ في إنشاء الحساب. يرجى المحاولة لاحقاً."));
       }
@@ -194,34 +173,6 @@ export default function RegisterPage() {
               />
               <Mail className="w-5 h-5 text-[#387b94] absolute left-3.5 top-3.5" />
             </div>
-          </div>
-
-          {/* WhatsApp Phone Field */}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label htmlFor="reg_phone" className="text-sm font-semibold text-[#07365f] flex items-center gap-1.5">
-                <MessageCircle className="w-4 h-4 text-[#2abe50]" />
-                <span>رقم الواتساب للتنبيهات الفورية (مطلوب)</span>
-              </label>
-            </div>
-            <div className="relative">
-              <input
-                id="reg_phone"
-                name="tel"
-                autoComplete="tel"
-                type="tel"
-                required
-                value={whatsappPhone}
-                onChange={(e) => setWhatsappPhone(e.target.value)}
-                placeholder="+9665XXXXXXXX أو +201XXXXXXXXX أو 05XXXXXXXX"
-                dir="ltr"
-                className="w-full px-4 py-3 pl-11 rounded-xl border border-[#2abe50]/50 focus:border-[#2abe50] focus:ring-2 focus:ring-[#2abe50]/20 outline-none transition text-sm text-[#07365f] bg-[#eaf9ef]/30 placeholder:text-gray-400 font-mono"
-              />
-              <Phone className="w-5 h-5 text-[#2abe50] absolute left-3.5 top-3.5" />
-            </div>
-            <p className="text-xs text-[#159cb7] mt-1.5 flex items-center gap-1.5">
-              <span>ستصلك تنبيهات المحتوى المسيء والتنمر فورياً عبر رسائل واتساب الرسمية (يدعم كافة الدول)</span>
-            </p>
           </div>
 
           {/* Password Field */}

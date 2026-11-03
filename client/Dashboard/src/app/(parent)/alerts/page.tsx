@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   AlertTriangle,
-  MessageCircle,
   Filter,
   Search,
   ShieldAlert,
@@ -26,8 +25,7 @@ interface AlertItem {
   confidence: number;
   verdict: string;
   context_app: string | null;
-  whatsapp_sent: boolean;
-  web_push_sent: boolean;
+  web_push_sent?: boolean;
   created_at: string;
 }
 
@@ -281,7 +279,7 @@ export default function AlertsPage() {
                   <th className="p-4">المحتوى المرصود</th>
                   <th className="p-4">التطبيق</th>
                   <th className="p-4">نسبة الثقة</th>
-                  <th className="p-4">إشعار الواتساب</th>
+                  <th className="p-4">الإجراء الوقائي</th>
                   <th className="p-4">التاريخ والوقت</th>
                 </tr>
               </thead>
@@ -322,14 +320,10 @@ export default function AlertsPage() {
                         </span>
                       </td>
                       <td className="p-4 whitespace-nowrap">
-                        {alert.whatsapp_sent ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[#eaf9ef] text-[#2abe50]">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            تم الإرسال
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">غير مفعل</span>
-                        )}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[#feebe6] text-[#e33a0a]">
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          تم الحظر فورياً
+                        </span>
                       </td>
                       <td className="p-4 text-xs text-gray-500 whitespace-nowrap">
                         {formatAlertDate(alert.created_at)}

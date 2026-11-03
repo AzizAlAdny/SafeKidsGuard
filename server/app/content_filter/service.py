@@ -12,7 +12,7 @@ from app.auth.models import Family, FamilyMember, NotificationPreferences, User
 from app.ai_engine.cache import get_cached_classification, set_cached_classification
 from app.ai_engine.classifier import classify_text
 from app.ai_engine.preprocessing import preprocess_arabic
-from app.alerts.whatsapp import send_web_push_alert, send_whatsapp_alert
+from app.alerts.notifications import send_web_push_alert
 from app.content_filter.models import Alert
 from app.content_filter.schemas import AccessAppealRequest, AlertResponse, PredictRequest, PredictResponse
 
@@ -20,37 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 async def _dispatch_notifications_task(
-    wa_enabled: bool,
-    wa_phone: str | None,
-    wp_enabled: bool,
     wp_token: str | None,
     category: str,
     child_name: str,
     confidence: float,
-) -> tuple[bool, bool]:
-    """Send WhatsApp and Web Push notifications (with fallback)."""
-    wa_sent = False
-    wp_sent = False
-
-    if wa_enabled and wa_phone:
-        logger.info("Dispatching WhatsApp alert to %s for child %s", wa_phone[:6] + "***", child_name)
-        wa_sent = await send_whatsapp_alert(
-            parent_phone=wa_phone,
-            category=category,
-            child_name=child_name,
-            confidence=confidence,
-        )
-
-    # Trigger Web Push if enabled OR as fallback when WhatsApp fails
-    if (wp_enabled or not wa_sent) and wp_token:
-        wp_sent = await send_web_push_alert(
-            web_push_token=wp_token,
-            child_name=child_name,
-            category=category,
-            confidence=confidence,
-        )
-
-    return wa_sent, wp_sent
+) -> bool:
+    """Send real-time Web Push notification to the parent device."""
+    if not wp_token:
+        return False
+    return await send_web_push_alert(
+        web_push_token=wp_token,
+        child_name=child_name,
+        category=category,
+        confidence=confidence,
+    )
 
 
 async def classify_and_handle(
@@ -196,31 +179,22 @@ async def classify_and_handle(
 
             if parent_row:
                 _, prefs = parent_row
-                if prefs:
-                    wa_enabled = bool(prefs.whatsapp_enabled and prefs.whatsapp_phone)
-                    wp_enabled = bool(prefs.web_push_enabled and prefs.web_push_token)
-                    if background_tasks is not None and (wa_enabled or wp_enabled):
+                if prefs and prefs.web_push_enabled and prefs.web_push_token:
+                    if background_tasks is not None:
                         background_tasks.add_task(
                             _dispatch_notifications_task,
-                            wa_enabled,
-                            prefs.whatsapp_phone,
-                            wp_enabled,
                             prefs.web_push_token,
                             category,
                             child_name,
                             confidence,
                         )
-                    elif wa_enabled or wp_enabled:
-                        wa_sent, wp_sent = await _dispatch_notifications_task(
-                            wa_enabled,
-                            prefs.whatsapp_phone,
-                            wp_enabled,
+                    else:
+                        wp_sent = await _dispatch_notifications_task(
                             prefs.web_push_token,
                             category,
                             child_name,
                             confidence,
                         )
-                        alert.whatsapp_sent = wa_sent
                         alert.web_push_sent = wp_sent
 
     await db.commit()

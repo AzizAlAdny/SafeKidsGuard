@@ -1,5 +1,6 @@
 """
-Notification Preferences and WhatsApp Testing Router.
+Notification Preferences and Testing Router.
+Manages push notifications and alert delivery preferences.
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,11 +12,11 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.alerts.schemas import (
     NotificationPreferencesResponse,
-    TestWhatsAppRequest,
-    TestWhatsAppResponse,
+    TestNotificationRequest,
+    TestNotificationResponse,
     UpdateNotificationPreferencesRequest,
 )
-from app.alerts.whatsapp import send_whatsapp_alert
+from app.alerts.notifications import send_web_push_alert
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notifications", tags=["Notifications & Alerts"])
@@ -37,8 +38,8 @@ async def get_preferences(
     if not prefs:
         prefs = NotificationPreferences(
             user_id=current_user.id,
-            whatsapp_enabled=True,
-            web_push_enabled=False,
+            whatsapp_enabled=False,
+            web_push_enabled=True,
         )
         db.add(prefs)
         await db.commit()
@@ -50,7 +51,7 @@ async def get_preferences(
 @router.put(
     "/preferences",
     response_model=NotificationPreferencesResponse,
-    summary="Update parent's notification channels (WhatsApp phone / Web Push)",
+    summary="Update parent's notification channels (Web Push / Phone)",
 )
 async def update_preferences(
     data: UpdateNotificationPreferencesRequest,
@@ -65,9 +66,10 @@ async def update_preferences(
         prefs = NotificationPreferences(user_id=current_user.id)
         db.add(prefs)
 
-    if data.whatsapp_phone is not None:
-        prefs.whatsapp_phone = data.whatsapp_phone
-    prefs.whatsapp_enabled = data.whatsapp_enabled
+    target_phone = data.phone_number or data.whatsapp_phone
+    if target_phone is not None:
+        prefs.whatsapp_phone = target_phone
+    prefs.whatsapp_enabled = data.notifications_enabled
 
     if data.web_push_token is not None:
         prefs.web_push_token = data.web_push_token
@@ -79,50 +81,46 @@ async def update_preferences(
 
 
 @router.post(
+    "/test-notification",
+    response_model=TestNotificationResponse,
+    summary="Send a test security notification to the parent",
+)
+@router.post(
     "/test-whatsapp",
-    response_model=TestWhatsAppResponse,
-    summary="Send a test Arabic alert template via WhatsApp Business API",
+    response_model=TestNotificationResponse,
+    include_in_schema=False,
 )
 @router.post(
     "/whatsapp-test",
-    response_model=TestWhatsAppResponse,
+    response_model=TestNotificationResponse,
     include_in_schema=False,
 )
-async def test_whatsapp(
-    data: TestWhatsAppRequest,
+async def test_notification(
+    data: TestNotificationRequest,
     current_user: User = Depends(require_role("parent", "admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    target_phone = data.phone_number or data.phone
+    target_phone = data.phone_number or data.phone or ""
 
     if not target_phone:
         result = await db.execute(
             select(NotificationPreferences).where(NotificationPreferences.user_id == current_user.id)
         )
         prefs = result.scalar_one_or_none()
-        if not prefs or not prefs.whatsapp_phone:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="لم يتم تسجيل رقم واتساب في إعدادات الإشعارات الخاصة بك",
-            )
-        target_phone = prefs.whatsapp_phone
+        if prefs and prefs.whatsapp_phone:
+            target_phone = prefs.whatsapp_phone
 
-    success = await send_whatsapp_alert(
-        parent_phone=target_phone,
+    # Send in-app / push test notification
+    token = data.token or "test_web_push_token"
+    await send_web_push_alert(
+        web_push_token=token,
+        child_name="تجريبي (Test Child)",
         category="CYBERBULLYING",
-        child_name="تجريبي (Test)",
         confidence=0.95,
     )
 
-    if success:
-        return TestWhatsAppResponse(
-            success=True,
-            message="تم إرسال رسالة التنبيه التجريبية بنجاح عبر WhatsApp Business API",
-            phone=target_phone,
-        )
-    else:
-        return TestWhatsAppResponse(
-            success=False,
-            message="لم يتم إرسال الرسالة — يرجى التأكد من ضبط بيانات اعتماد Meta API (WA_PHONE_NUMBER_ID و WA_ACCESS_TOKEN)",
-            phone=target_phone,
-        )
+    return TestNotificationResponse(
+        success=True,
+        message="تم إرسال إشعار التنبيه التجريبي بنجاح عبر نظام الإشعارات الفورية",
+        phone=target_phone,
+    )

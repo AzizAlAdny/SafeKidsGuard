@@ -8,7 +8,7 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple.svg)](https://web.dev/progressive-web-apps/)
 [![RTL Supported](https://img.shields.io/badge/Language-Arabic_RTL_(Cairo)-07365f.svg)](https://fonts.google.com/specimen/Cairo)
 
-**Safe Kids Guard Dashboard** is a progressive web application (PWA) built with **Next.js 16 (App Router)**, **React 19**, and **Tailwind CSS v4**. It is tailored for parents to configure child safety policies, monitor real-time activity feeds, receive instant WhatsApp alerts, review safety analytics, and for administrators to manage accounts and review model performance.
+**Safe Kids Guard Dashboard** is a progressive web application (PWA) built with **Next.js 16 (App Router)**, **React 19**, and **Tailwind CSS v4**. It is tailored for parents to configure child safety policies, monitor real-time activity feeds, receive instant push security alerts, review safety analytics, and for administrators to manage accounts and review model performance.
 
 The dashboard features native Right-to-Left (RTL) layout support using the Arabic **Cairo** font family and adheres to strict user experience standards.
 
@@ -34,14 +34,14 @@ The dashboard includes **18 verified routes** covering both the Parent portal an
 |---|---|---|
 | `/` | **Landing / Root** | Smart redirection based on user authentication state. |
 | `/login` | **Sign In** | Role-based authentication redirecting parents to `/dashboard` and admins to `/admin`. |
-| `/register` | **Parent Registration** | New parent registration with strict Saudi WhatsApp validation (`966XXXXXXXXX`). |
+| `/register` | **Parent Registration** | New parent registration with international phone format validation (E.164). |
 | `/dashboard` | **Parent Overview** | Real-time safety KPIs, recent threat feed, and paired device summary. |
 | `/alerts` | **Threat & Alerts Feed** | Filterable table of intercepted content, confidence scores, and context snippets. |
 | `/children` | **Child Account Manager** | Add children, issue official 6-digit pairing PINs, and monitor pairing status. |
 | `/activity` | **Live Activity Log** | Real-time audit log of inspected screen text (safe and blocked) and originating apps. |
 | `/policies` | **Protection Policies** | Preset templates (Child/Teen), category toggles, AI sensitivity slider, app and URL blacklists. |
 | `/reports` | **Analytics & PDF Export** | Interactive safety charts (Recharts) and on-demand Arabic BiDi PDF report generator. |
-| `/notifications` | **Alert Settings** | Manage recipient WhatsApp number and send instant live verification alerts. |
+| `/notifications` | **Alert Settings** | Manage Web Push security notifications, sound alarms, and instant test verification alerts. |
 | `/admin` | **Admin Command Center** | Macro-level system metrics: active users, total scans, and blocked threats (`FR13`). |
 | `/admin/users` | **User Management** | Search, filter, activate/deactivate, and delete accounts (`FR10, UC-A1`). |
 | `/admin/models` | **AI Model Telemetry** | Status monitor for `AraBERTv2` & `CAMeLBERT`, category counts, and model reloader (`FR11, UC-A2`). |
@@ -86,7 +86,7 @@ client/Dashboard/
 │   │   │   ├── activity/page.tsx  # Real-time activity audit log
 │   │   │   ├── policies/page.tsx  # Safety policies & sensitivity controls
 │   │   │   ├── reports/page.tsx   # Visual charts & PDF export button
-│   │   │   └── notifications/page.tsx # WhatsApp integration settings
+│   │   │   └── notifications/page.tsx # Push & in-app security alert settings
 │   │   ├── (admin)/               # Administrator portal
 │   │   │   ├── layout.tsx         # Admin sidebar and header layout
 │   │   │   ├── admin/page.tsx     # Macro system health overview

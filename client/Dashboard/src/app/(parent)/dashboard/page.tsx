@@ -8,7 +8,7 @@ import {
   Clock,
   Smartphone,
   CheckCircle2,
-  MessageCircle,
+  Bell,
   ChevronLeft,
   Plus,
   Loader2,
@@ -33,7 +33,6 @@ interface AlertItem {
   confidence: number;
   verdict: string;
   context_app: string | null;
-  whatsapp_sent: boolean;
   created_at: string;
 }
 
@@ -75,7 +74,7 @@ export default function DashboardPage() {
     totalMessagesAnalyzed: 0,
     threatsBlocked: 0,
     activeChildren: 0,
-    whatsappEnabled: false,
+    notificationsActive: true,
     safetyScore: 100,
   });
 
@@ -110,14 +109,16 @@ export default function DashboardPage() {
             : [];
         setRecentAlerts(alerts);
 
-        const isWhatsappActive =
-          prefsRes.status === "fulfilled" && prefsRes.value.data?.whatsapp_enabled === true;
+        const isNotifActive =
+          prefsRes.status === "fulfilled"
+            ? Boolean(prefsRes.value.data?.web_push_enabled ?? true)
+            : true;
 
         setStats({
           totalMessagesAnalyzed: summary.total_events,
           threatsBlocked: summary.blocked_events,
           activeChildren: children.length,
-          whatsappEnabled: isWhatsappActive,
+          notificationsActive: isNotifActive,
           safetyScore: Math.round(summary.safety_score || 100),
         });
       } catch (err) {
@@ -203,19 +204,19 @@ export default function DashboardPage() {
 
         <div className="p-5 rounded-2xl bg-white border border-[#b5d7e3]/40 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-[#387b94]">تنبيهات الواتساب</p>
-            <h3 className="text-2xl font-bold text-[#2abe50] mt-1">
-              {stats.whatsappEnabled ? "مفعلة ✅" : "غير مفعلة ⚠️"}
+            <p className="text-xs font-semibold text-[#387b94]">الإشعارات الفورية</p>
+            <h3 className="text-2xl font-bold text-[#159cb7] mt-1">
+              {stats.notificationsActive ? "نشطة ومحمية" : "موقوفة"}
             </h3>
             <Link
               href="/notifications"
               className="text-[11px] text-[#159cb7] hover:underline font-medium mt-1 block"
             >
-              ضبط رقم واتساب للأهل
+              إدارة تفضيلات الإشعارات
             </Link>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-[#eaf9ef] flex items-center justify-center text-[#2abe50]">
-            <MessageCircle className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-xl bg-[#edf5f8] flex items-center justify-center text-[#159cb7]">
+            <Bell className="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -372,12 +373,10 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end gap-3 text-xs">
-                    {alert.whatsapp_sent && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2abe50] bg-[#eaf9ef] px-2 py-1 rounded-md whitespace-nowrap">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        أُرسل للواتساب
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#e33a0a] bg-[#feebe6] px-2 py-1 rounded-md whitespace-nowrap">
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      محظور فورياً
+                    </span>
                     <span className="text-gray-400 whitespace-nowrap">
                       {formatRelativeTime(alert.created_at)}
                     </span>

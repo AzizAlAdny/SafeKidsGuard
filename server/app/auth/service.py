@@ -73,11 +73,13 @@ async def register_parent(db: AsyncSession, data: RegisterRequest) -> TokenRespo
     db.add(user)
     await db.flush()  # Get user.id without committing
 
-    # Create notification preferences (with WhatsApp if provided)
+    # Create notification preferences
+    phone = data.phone_number or data.whatsapp_phone
     prefs = NotificationPreferences(
         user_id=user.id,
-        whatsapp_phone=data.whatsapp_phone,
-        whatsapp_enabled=data.whatsapp_phone is not None,
+        whatsapp_phone=phone,
+        whatsapp_enabled=bool(phone),
+        web_push_enabled=False,
     )
     db.add(prefs)
 

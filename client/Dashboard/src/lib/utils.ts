@@ -37,8 +37,8 @@ export function extractErrorMessage(err: any, fallback: string = "حدث خطأ 
           if (field === "full_name") {
             return "الاسم الكامل مطلوب (حرفين على الأقل)";
           }
-          if (field === "whatsapp_phone") {
-            return "رقم الواتساب يجب أن يكون بصيغة دولية صحيحة مع رمز الدولة (مثال: 966501234567 أو 201012345678)";
+          if (field === "phone_number" || field === "whatsapp_phone") {
+            return "رقم الهاتف يجب أن يكون بصيغة دولية صحيحة مع رمز الدولة (مثال: +966501234567 أو 201012345678)";
           }
           return `${field ? field + ": " : ""}${msg}`;
         }

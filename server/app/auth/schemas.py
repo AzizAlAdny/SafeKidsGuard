@@ -15,14 +15,18 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=2, max_length=255)
     role: Literal["parent"] = "parent"
-    whatsapp_phone: str | None = Field(
+    phone_number: str | None = Field(
         default=None,
         description="International E.164 phone format: 7 to 15 digits without +, e.g. 966501234567, 201012345678",
     )
+    whatsapp_phone: str | None = Field(
+        default=None,
+        description="Deprecated alias for phone_number",
+    )
 
-    @field_validator("whatsapp_phone")
+    @field_validator("phone_number", "whatsapp_phone")
     @classmethod
-    def validate_whatsapp(cls, v: str | None) -> str | None:
+    def validate_phone(cls, v: str | None) -> str | None:
         if v is None or v == "":
             return None
         # Clean formatting characters
@@ -38,7 +42,7 @@ class RegisterRequest(BaseModel):
         # E.164 international standard: 7 to 15 digits
         if not re.fullmatch(r"\d{7,15}", cleaned):
             raise ValueError(
-                "WhatsApp phone must be a valid international number with country code (e.g. 966501234567, 201012345678, 971501234567)"
+                "Phone number must be a valid international number with country code (e.g. 966501234567, 201012345678, 971501234567)"
             )
         return cleaned
 
