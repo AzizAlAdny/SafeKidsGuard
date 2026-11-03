@@ -25,12 +25,12 @@ async def test_reports_summary_and_pdf_export(client):
     child_id = child_res.json()["id"]
 
     # 2. Generate activity events (1 safe, 1 blocked)
-    await client.post("/classification/predict", json={
+    await client.post("/classification/predict", headers=parent_headers, json={
         "text": "مرحباً يا صديقي كيف حالك اليوم والواجب المدرسي",
         "child_id": child_id,
         "context_app": "WhatsApp",
     })
-    await client.post("/classification/predict", json={
+    await client.post("/classification/predict", headers=parent_headers, json={
         "text": "أنت غبي يا كلب وحيوان وسأضربك في المدرسة",
         "child_id": child_id,
         "context_app": "TikTok",

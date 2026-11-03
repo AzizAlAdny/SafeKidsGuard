@@ -14,11 +14,20 @@ class PredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     verdict: str = Field(..., description="'BLOCKED' or 'ALLOWED'")
-    category: str = Field(..., description="SAFE, CYBERBULLYING, SEXUAL, VIOLENCE, HATE_SPEECH")
+    category: str = Field(..., description="SAFE, CYBERBULLYING, SEXUAL, VIOLENCE, HATE_SPEECH, DRUGS, SELF_HARM")
     confidence: float = Field(..., ge=0.0, le=1.0)
     is_blocked: bool
+    block_reason: str | None = None
+    alert_id: uuid.UUID | None = None
     execution_time_ms: float
     cached: bool = False
+
+
+class AccessAppealRequest(BaseModel):
+    child_id: uuid.UUID
+    alert_id: uuid.UUID | None = None
+    reason: str = Field(default="أعتقد أن هذا المحتوى آمن (Request Access)", max_length=500)
+    context_app: str | None = None
 
 
 class AlertResponse(BaseModel):
@@ -32,6 +41,8 @@ class AlertResponse(BaseModel):
     context_app: str | None
     whatsapp_sent: bool
     web_push_sent: bool
+    review_status: str = "PENDING"
+    access_request_reason: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -34,6 +34,8 @@ slowapi>=0.1.9
 
 # Reporting
 reportlab>=4.2.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
 pandas>=2.2.0
 
 # Utilities

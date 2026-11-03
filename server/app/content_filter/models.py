@@ -33,6 +33,12 @@ class Alert(Base):
     whatsapp_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     web_push_sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Review & Child Access Request tracking (UC-C5, UC-A4)
+    review_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="PENDING"
+    )
+    access_request_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )

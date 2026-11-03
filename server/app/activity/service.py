@@ -47,20 +47,21 @@ async def get_parent_activities(
     end_date: datetime | None = None,
     page: int = 1,
     size: int = 20,
+    is_admin: bool = False,
 ) -> tuple[list[dict], int]:
-    """Retrieve activity log for children belonging to this parent."""
-    # Find all children of this parent
-    children_subquery = (
-        select(FamilyMember.child_id)
-        .join(Family, Family.id == FamilyMember.family_id)
-        .where(Family.parent_id == parent_id)
-    )
-
+    """Retrieve activity log for children belonging to this parent (or all children for admin)."""
     base_query = (
         select(ActivityEvent, User.full_name.label("child_name"))
         .join(User, User.id == ActivityEvent.child_id)
-        .where(ActivityEvent.child_id.in_(children_subquery))
     )
+
+    if not is_admin:
+        children_subquery = (
+            select(FamilyMember.child_id)
+            .join(Family, Family.id == FamilyMember.family_id)
+            .where(Family.parent_id == parent_id)
+        )
+        base_query = base_query.where(ActivityEvent.child_id.in_(children_subquery))
 
     if child_id:
         base_query = base_query.where(ActivityEvent.child_id == child_id)

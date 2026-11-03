@@ -36,3 +36,7 @@ class PaginatedActivityResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class BatchActivityRequest(BaseModel):
+    events: list[ActivityEventCreate] = Field(..., min_length=1, max_length=100)

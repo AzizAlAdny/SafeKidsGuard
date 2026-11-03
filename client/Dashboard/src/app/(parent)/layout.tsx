@@ -32,15 +32,21 @@ const navItems = [
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, initialize, logout } = useAuthStore();
+  const { user, isAuthenticated, isInitialized, initialize, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  const handleLogout = () => {
-    logout();
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isInitialized, isAuthenticated, router]);
+
+  const handleLogout = async () => {
+    await logout();
     router.push("/login");
   };
 

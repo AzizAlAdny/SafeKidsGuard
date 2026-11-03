@@ -18,6 +18,7 @@ from app.alerts.router import router as alerts_router
 from app.policies.router import router as policies_router
 from app.activity.router import router as activity_router
 from app.reports.router import router as reports_router
+from app.admin.router import router as admin_router
 from app.ai_engine.model import load_models
 from app.core.redis import init_redis, close_redis
 
@@ -64,6 +65,7 @@ api_v1_router.include_router(alerts_router)
 api_v1_router.include_router(policies_router)
 api_v1_router.include_router(activity_router)
 api_v1_router.include_router(reports_router)
+api_v1_router.include_router(admin_router)
 
 app.include_router(api_v1_router)
 
@@ -74,6 +76,7 @@ app.include_router(alerts_router, include_in_schema=False)
 app.include_router(policies_router, include_in_schema=False)
 app.include_router(activity_router, include_in_schema=False)
 app.include_router(reports_router, include_in_schema=False)
+app.include_router(admin_router, include_in_schema=False)
 
 
 @app.get("/health", tags=["Health"])

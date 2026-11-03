@@ -98,8 +98,9 @@ async def test_predict_endpoint_flow(client):
     assert child_resp.status_code == 201
     child_id = child_resp.json()["id"]
 
-    # 3. Predict Safe Text
-    safe_pred = await client.post("/classification/predict", json={
+    # 3. Predict Safe Text (Authenticated)
+    auth_headers = {"Authorization": f"Bearer {parent_token}"}
+    safe_pred = await client.post("/classification/predict", headers=auth_headers, json={
         "text": "مرحبا صديقي هل نلعب سوياً اليوم؟",
         "child_id": child_id,
         "context_app": "whatsapp",
@@ -108,8 +109,8 @@ async def test_predict_endpoint_flow(client):
     assert safe_pred.json()["is_blocked"] is False
     assert safe_pred.json()["category"] == "SAFE"
 
-    # 4. Predict Cyberbullying Threat
-    threat_pred = await client.post("/classification/predict", json={
+    # 4. Predict Cyberbullying Threat (Authenticated)
+    threat_pred = await client.post("/classification/predict", headers=auth_headers, json={
         "text": "يا غبي يا فاشل راح نضربك بكرة",
         "child_id": child_id,
         "context_app": "tiktok",

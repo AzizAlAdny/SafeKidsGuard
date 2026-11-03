@@ -17,6 +17,15 @@ TATWEEL_REGEX = re.compile(r"\u0640")
 # Multiple consecutive punctuation/symbols
 PUNCT_REGEX = re.compile(r"([!?.,;:\-_=+/\\|~`@#$%^&*()\[\]{}<>\"'\u060C\u061B\u061F])\1+")
 
+# HTML script/style blocks and general tags
+HTML_SCRIPT_STYLE_REGEX = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+HTML_TAG_REGEX = re.compile(r"<[^>]+>")
+
+# Arabizi / Leetspeak token containing at least one letter AND at least one digit
+ARABIZI_TOKEN_REGEX = re.compile(
+    r"\b(?=[a-zA-Z\u0600-\u06FF\d]*[a-zA-Z\u0600-\u06FF])(?=[a-zA-Z\u0600-\u06FF\d]*\d)[a-zA-Z\u0600-\u06FF\d]+\b"
+)
+
 # Arabizi / Leetspeak digit to Arabic letter mapping
 LEETSPEAK_MAP = {
     "3": "ع",
@@ -27,6 +36,12 @@ LEETSPEAK_MAP = {
     "8": "ق",
     "9": "ص",
 }
+
+
+def strip_html(text: str) -> str:
+    """Remove HTML script/style blocks and markup tags."""
+    text = HTML_SCRIPT_STYLE_REGEX.sub(" ", text)
+    return HTML_TAG_REGEX.sub(" ", text)
 
 
 def remove_tashkeel(text: str) -> str:
@@ -65,18 +80,18 @@ def reduce_elongation(text: str) -> str:
 
 def normalize_leetspeak(text: str) -> str:
     """
-    Normalize Arabizi / Franco-Arabic number substitutions within words.
-    E.g., 'ya 3rab' -> 'ya عراب'
+    Normalize Arabizi / Franco-Arabic number substitutions within words
+    while preserving pure numbers (e.g., '2026', '100').
+    E.g., 'ya 3rab' -> 'ya عrab', 'عام 2026' -> 'عام 2026'
     """
-    # Replace numbers that are embedded inside Arabic/Latin words
     def replace_digit(match):
         word = match.group(0)
         for digit, char in LEETSPEAK_MAP.items():
             word = word.replace(digit, char)
         return word
 
-    # Match words containing numbers alongside letters
-    return re.sub(r"\b\w*\d+\w*\b", replace_digit, text)
+    # Only match tokens containing both letters and digits
+    return ARABIZI_TOKEN_REGEX.sub(replace_digit, text)
 
 
 def clean_spaces(text: str) -> str:
@@ -87,16 +102,20 @@ def clean_spaces(text: str) -> str:
 def preprocess_arabic(text: str) -> str:
     """
     Complete Arabic preprocessing pipeline:
-    1. Unicode normalization (NFKC)
-    2. Remove Tashkeel (harakat)
-    3. Remove Tatweel (kashida)
-    4. Normalize Arabic letter variants
-    5. Reduce character elongation
-    6. Normalize Arabizi numbers
-    7. Clean excess whitespace
+    1. Strip HTML tags and script blocks
+    2. Unicode normalization (NFKC)
+    3. Remove Tashkeel (harakat)
+    4. Remove Tatweel (kashida)
+    5. Normalize Arabic letter variants
+    6. Reduce character elongation
+    7. Normalize Arabizi numbers (preserving pure numeric tokens)
+    8. Clean excess whitespace
     """
     if not text:
         return ""
+
+    # Step 0: Strip HTML tags
+    text = strip_html(text)
 
     # Step 1: Unicode Normalization
     text = unicodedata.normalize("NFKC", text)

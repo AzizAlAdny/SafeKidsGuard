@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "server/.env", "../server/.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -47,5 +47,16 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
+    def validate_production_settings(self) -> None:
+        """Reject insecure default secrets when running in production."""
+        if (
+            self.APP_ENV.lower() == "production"
+            and self.JWT_SECRET_KEY == "dev-secret-key-change-in-production-safekidsguard-2026"
+        ):
+            raise ValueError(
+                "CRITICAL SECURITY ERROR: Default JWT_SECRET_KEY cannot be used when APP_ENV='production'."
+            )
+
 
 settings = Settings()
+settings.validate_production_settings()

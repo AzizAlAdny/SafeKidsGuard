@@ -5,12 +5,13 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import sa.safekids.guard.BuildConfig
 import sa.safekids.guard.data.SessionManager
 import java.util.concurrent.TimeUnit
 
 /**
  * ApiClient provides a thread-safe singleton Retrofit instance.
- * Automatically synchronizes with SessionManager's active baseUrl.
+ * Redacts Authorization headers and avoids logging sensitive request bodies (NFR4).
  */
 object ApiClient {
 
@@ -19,14 +20,20 @@ object ApiClient {
 
     private fun buildOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // Never log HTTP bodies containing child screen text or tokens (VULN-04 remediation)
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
+            redactHeader("Authorization")
         }
 
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
     }

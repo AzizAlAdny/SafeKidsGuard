@@ -2,11 +2,14 @@
 Service for generating safety metrics, analytical summaries, and PDF reports.
 """
 import io
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +24,46 @@ CATEGORY_ARABIC_MAP = {
     "SEXUAL": "محتوى غير لائق (Sexual)",
     "VIOLENCE": "عنف وتهديد (Violence)",
     "HATE_SPEECH": "خطاب كراهية (Hate Speech)",
+    "BLOCKED_APP": "تطبيق محظور (Blocked App)",
+    "BLACKLISTED_URL": "رابط محظور (Blacklisted URL)",
 }
+
+
+def _register_arabic_font() -> str:
+    """Register an Arabic-capable TrueType font for ReportLab PDF rendering."""
+    font_name = "ArabicFont"
+    if font_name in pdfmetrics.getRegisteredFontNames():
+        return font_name
+
+    candidate_paths = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/tahoma.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    ]
+    for path in candidate_paths:
+        if os.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont(font_name, path))
+                return font_name
+            except Exception:
+                continue
+    return "Helvetica"
+
+
+def _shape_arabic_text(text: str | None) -> str:
+    """Reshape and apply BiDi ordering to Arabic text so ReportLab renders connected RTL glyphs."""
+    if not text:
+        return ""
+    try:
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+
+        reshaped = arabic_reshaper.reshape(text)
+        return get_display(reshaped)
+    except Exception:
+        return text
 
 
 async def get_report_summary(
@@ -29,28 +71,26 @@ async def get_report_summary(
     parent_id: uuid.UUID,
     child_id: uuid.UUID | None = None,
     days: int = 7,
+    is_admin: bool = False,
 ) -> ReportSummaryResponse:
     """Generate analytical summary over the past N days."""
     now = datetime.now(UTC)
     start_date = now - timedelta(days=days)
 
-    # Subquery for child IDs belonging to parent
-    children_subquery = (
-        select(FamilyMember.child_id)
-        .join(Family, Family.id == FamilyMember.family_id)
-        .where(Family.parent_id == parent_id)
-    )
-    if child_id:
-        children_subquery = children_subquery.where(FamilyMember.child_id == child_id)
+    events_query = select(ActivityEvent).where(ActivityEvent.timestamp >= start_date)
 
-    # Base query for period
-    events_query = (
-        select(ActivityEvent)
-        .where(
-            ActivityEvent.child_id.in_(children_subquery),
-            ActivityEvent.timestamp >= start_date,
+    if not is_admin:
+        children_subquery = (
+            select(FamilyMember.child_id)
+            .join(Family, Family.id == FamilyMember.family_id)
+            .where(Family.parent_id == parent_id)
         )
-    )
+        if child_id:
+            children_subquery = children_subquery.where(FamilyMember.child_id == child_id)
+        events_query = events_query.where(ActivityEvent.child_id.in_(children_subquery))
+    elif child_id:
+        events_query = events_query.where(ActivityEvent.child_id == child_id)
+
     res = await db.execute(events_query)
     events = res.scalars().all()
 
@@ -121,8 +161,9 @@ async def get_report_summary(
 
 
 def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
-    """Generate an executive PDF report using ReportLab."""
+    """Generate an executive PDF report using ReportLab with Arabic Unicode shaping."""
     buffer = io.BytesIO()
+    font_name = _register_arabic_font()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
@@ -136,6 +177,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     title_style = ParagraphStyle(
         "DocTitle",
         parent=styles["Heading1"],
+        fontName=font_name,
         fontSize=20,
         leading=24,
         textColor=colors.HexColor("#07365f"),
@@ -144,6 +186,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     subtitle_style = ParagraphStyle(
         "SubTitle",
         parent=styles["Normal"],
+        fontName=font_name,
         fontSize=11,
         textColor=colors.HexColor("#387b94"),
         alignment=1,
@@ -151,6 +194,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     section_style = ParagraphStyle(
         "SectionHeader",
         parent=styles["Heading2"],
+        fontName=font_name,
         fontSize=14,
         leading=18,
         textColor=colors.HexColor("#07365f"),
@@ -158,6 +202,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     body_style = ParagraphStyle(
         "Body",
         parent=styles["Normal"],
+        fontName=font_name,
         fontSize=10,
         leading=14,
         textColor=colors.HexColor("#1b2533"),
@@ -168,20 +213,21 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     # Title & Header
     elements.append(Paragraph("Safe Kids Guard - Parental Safety Report", title_style))
     elements.append(Spacer(1, 4))
-    elements.append(Paragraph("تقرير أمان محتوى الأطفال - جامعة جدة", subtitle_style))
+    elements.append(Paragraph(_shape_arabic_text("تقرير أمان محتوى الأطفال - جامعة جدة"), subtitle_style))
     elements.append(Spacer(1, 16))
 
     # Period Info Table
+    target_child_label = _shape_arabic_text(summary.child_name or "All Linked Children (الكل)")
     info_data = [
         ["Report Period", f"{summary.start_date} to {summary.end_date}"],
-        ["Target Child", summary.child_name or "All Linked Children (الكل)"],
+        ["Target Child", target_child_label],
         ["Safety Score", f"{summary.safety_score}%"],
     ]
     info_table = Table(info_data, colWidths=[150, 390])
     info_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#edf5f8")),
         ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#07365f")),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#b5d7e3")),
@@ -190,7 +236,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     elements.append(Spacer(1, 16))
 
     # Key Metrics Table
-    elements.append(Paragraph("Key Protection Metrics (مؤشرات الحماية)", section_style))
+    elements.append(Paragraph(_shape_arabic_text("Key Protection Metrics (مؤشرات الحماية)"), section_style))
     elements.append(Spacer(1, 8))
 
     metrics_data = [
@@ -206,7 +252,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     metrics_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#159cb7")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 8),
@@ -218,7 +264,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     elements.append(Spacer(1, 20))
 
     # Threat Breakdown Section
-    elements.append(Paragraph("Threat Breakdown by Category (تفاصيل التهديدات)", section_style))
+    elements.append(Paragraph(_shape_arabic_text("Threat Breakdown by Category (تفاصيل التهديدات)"), section_style))
     elements.append(Spacer(1, 8))
 
     if summary.threat_breakdown:
@@ -226,13 +272,13 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
         total_threats = max(summary.blocked_events, 1)
         for cat in summary.threat_breakdown:
             pct = round((cat.count / total_threats) * 100, 1)
-            breakdown_data.append([cat.label_ar, str(cat.count), f"{pct}%"])
+            breakdown_data.append([_shape_arabic_text(cat.label_ar), str(cat.count), f"{pct}%"])
 
         breakdown_table = Table(breakdown_data, colWidths=[240, 150, 150])
         breakdown_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#07365f")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, -1), font_name),
             ("ALIGN", (1, 0), (-1, -1), "CENTER"),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -246,7 +292,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
 
     elements.append(Spacer(1, 30))
     elements.append(
-        Paragraph("Generated automatically by Safe Kids Guard Platform (حارس الأطفال الآمن) - University of Jeddah", subtitle_style)
+        Paragraph(_shape_arabic_text("Generated automatically by Safe Kids Guard Platform (حارس الأطفال الآمن) - University of Jeddah"), subtitle_style)
     )
 
     doc.build(elements)

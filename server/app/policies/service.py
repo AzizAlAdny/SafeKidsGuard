@@ -76,16 +76,18 @@ async def update_policy(
     child_id: uuid.UUID,
     parent_id: uuid.UUID,
     update_data: PolicyUpdate,
+    is_admin: bool = False,
 ) -> Policy:
-    """Update child policy after confirming parent authorization."""
-    is_authorized = await verify_parent_child_relationship(db, parent_id, child_id)
-    if not is_authorized:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify policies for this child account",
-        )
+    """Update child policy after confirming parent or admin authorization."""
+    if not is_admin:
+        is_authorized = await verify_parent_child_relationship(db, parent_id, child_id)
+        if not is_authorized:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to modify policies for this child account",
+            )
 
-    policy = await get_or_create_policy(db, child_id, parent_id)
+    policy = await get_or_create_policy(db, child_id, None if is_admin else parent_id)
 
     # Apply updates
     data_dict = update_data.model_dump(exclude_unset=True)

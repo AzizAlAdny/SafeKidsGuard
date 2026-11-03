@@ -17,6 +17,30 @@ data class TokenDto(
     val refresh_token: String
 )
 
+data class PairDeviceRequestDto(
+    val pairing_pin: String
+)
+
+data class PairDeviceResponseDto(
+    val access_token: String,
+    val refresh_token: String,
+    val token_type: String = "bearer",
+    val child_id: String,
+    val child_name: String,
+    val family_id: String
+)
+
+data class UnpairDeviceRequestDto(
+    val parent_password: String
+)
+
+data class AccessAppealRequestDto(
+    val child_id: String,
+    val alert_id: String? = null,
+    val reason: String = "أعتقد أن هذا المحتوى آمن وأطلب السماح بالوصول",
+    val context_app: String? = null
+)
+
 data class ClassificationRequest(
     val text: String,
     val child_id: String,
@@ -28,6 +52,8 @@ data class ClassificationResponse(
     val category: String, // SAFE, CYBERBULLYING, SEXUAL, VIOLENCE, HATE_SPEECH
     val confidence: Double,
     val is_blocked: Boolean,
+    val block_reason: String? = null,
+    val alert_id: String? = null,
     val cached: Boolean = false
 )
 
@@ -62,11 +88,26 @@ interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body body: LoginDto): Response<TokenDto>
 
+    @POST("auth/pair-device")
+    suspend fun pairDevice(@Body body: PairDeviceRequestDto): Response<PairDeviceResponseDto>
+
+    @POST("auth/unpair-device")
+    suspend fun unpairDevice(
+        @Header("Authorization") token: String,
+        @Body body: UnpairDeviceRequestDto
+    ): Response<Unit>
+
     @POST("classification/predict")
     suspend fun classifyText(
         @Header("Authorization") token: String,
         @Body request: ClassificationRequest
     ): Response<ClassificationResponse>
+
+    @POST("alerts/request-access")
+    suspend fun requestAccessAppeal(
+        @Header("Authorization") token: String,
+        @Body body: AccessAppealRequestDto
+    ): Response<Unit>
 
     @GET("policies/{child_id}")
     suspend fun getPolicy(

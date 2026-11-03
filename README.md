@@ -9,8 +9,8 @@
 [![Android](https://img.shields.io/badge/Client-Android_Kotlin_Compose-green.svg)](client/child_monitoring_app/)
 [![PyTorch](https://img.shields.io/badge/AI_Engine-PyTorch_%2B_Transformers-EE4C2C.svg)](server/)
 [![Meta WhatsApp](https://img.shields.io/badge/WhatsApp-Cloud_API_v21.0-25D366.svg)](server/)
-[![Tests](https://img.shields.io/badge/Pytest-29%2F29_Passed_(100%25)-brightgreen.svg)](server/)
-[![Build](https://img.shields.io/badge/Next.js_Build-13_Static_Routes_Passed-brightgreen.svg)](client/Dashboard/)
+[![Tests](https://img.shields.io/badge/Pytest-39%2F39_Passed_(100%25)-brightgreen.svg)](server/)
+[![Build](https://img.shields.io/badge/Next.js_Build-18_Routes_Passed-brightgreen.svg)](client/Dashboard/)
 
 ---
 
@@ -68,19 +68,20 @@
 ```
 SafeKidsGuard/
 ├── server/                     # خادم الذكاء الاصطناعي وقواعد البيانات ومسارات الـ REST API
-│   ├── app/                    # الكود المصدري (auth, ai_engine, content_filter, alerts, policies, activity, reports)
+│   ├── app/                    # الكود المصدري (auth, ai_engine, content_filter, alerts, policies, activity, reports, admin)
 │   ├── alembic/                # ترحيل وإدارة بنية قاعدة البيانات
-│   ├── tests/                  # حزمة الاختبارات الآلية (28 اختباراً ناجحاً بنسبة 100%)
+│   ├── tests/                  # حزمة الاختبارات الآلية (39 اختباراً ناجحاً بنسبة 100%)
 │   └── README.md               # 📄 التوثيق الشامل للخادم ومتغيرات البيئة
 │
 ├── client/
-│   ├── Dashboard/              # لوحة تحكم ولي الأمر بـ Next.js 16 + React 19 + Tailwind v4 + Cairo RTL
-│   │   ├── src/app/            # الصفحات (dashboard, alerts, children, activity, policies, reports, notifications)
+│   ├── Dashboard/              # لوحة تحكم ولي الأمر والمشرف بـ Next.js 16 + React 19 + Tailwind v4 + Cairo RTL
+│   │   ├── src/app/            # الصفحات ((parent): dashboard, alerts, children, activity, policies, reports, notifications | (admin): users, models, flagged, settings)
+│   │   ├── src/middleware.ts   # حماية المسارات والتحقق من الصلاحيات (RBAC Middleware)
 │   │   ├── public/             # الأصول الثابتة، PWA Manifest، و Firebase Service Worker
 │   │   └── README.md           # 📄 التوثيق الشامل للوحة التحكم ونظام الألوان
 │   │
 │   └── child_monitoring_app/   # تطبيق مراقبة وحماية جهاز الطفل بنظام Android (Kotlin + Compose M3)
-│       ├── app/src/main/       # كود التطبيق، AccessibilityService، وواجهات Retrofit
+│       ├── app/src/main/       # كود التطبيق، AccessibilityService، EncryptedSharedPreferences، وواجهات Retrofit
 │       └── README.md           # 📄 التوثيق الشامل لتطبيق أندرويد والأذونات
 │
 ├── docs/                       # وثائق المشروع، المتطلبات الأكاديمية، والتقرير النهائي
@@ -125,10 +126,20 @@ cd SafeKidsGuard
 docker compose up --build
 ```
 
-* **لوحة تحكم ولي الأمر (Next.js):** [http://localhost:3000](http://localhost:3000)
+* **لوحة تحكم ولي الأمر والمشرف (Next.js):** [http://localhost:3000](http://localhost:3000)
 * **واجهة التوثيق التفاعلية للـ API (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
 * **المسار القياسي الموحد (API v1):** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 * **فحص صحة الخادم (Health Check):** [http://localhost:8000/health](http://localhost:8000/health)
+
+### 🔑 بيانات تسجيل الدخول الجاهزة للتجربة (Default Credentials)
+| الدور (Role) | البريد الإلكتروني | كلمة المرور | الوجهة التلقائية بعد الدخول |
+|---|---|---|---|
+| **مشرف النظام (Admin)** | `admin@safekids.local` | `Admin@123456` | `/admin` (إدارة الحسابات، المقاييس، فحص النماذج) |
+| **ولي الأمر (Parent)** | `aziz@gmail.com` | كلمة المرور المسجلة | `/dashboard` (متابعة الأبناء، التنبيهات، السياسات) |
+
+> [!NOTE]
+> لإنشاء حساب مشرف إضافي أو ترقية أي مستخدم موجود عبر سطر الأوامر:
+> `cd server && python create_admin.py --promote aziz@gmail.com`
 
 ---
 
@@ -137,17 +148,18 @@ docker compose up --build
 تم إخضاع كافة وحدات النظام لاختبارات دقيقة تغطي جميع سيناريوهات الاستخدام والأمان:
 
 ### 1. الخادم والواجهة الخلفية (`server/tests`):
-* **29 اختباراً من أصل 29 ناجحة بنسبة 100%**:
+* **39 اختباراً من أصل 39 ناجحة بنسبة 100%**:
   * `test_auth.py` (10 اختبارات): التسجيل، تسجيل الدخول، أرقام الهواتف السعودية، تدوير رموز JWT، استرجاع أجهزة الأطفال `GET /auth/children`، فحص توافقية مسارات `/api/v1/`، واختبار نظام تقييد الطلبات (SlowAPI Rate Limiting - 429).
-  * `test_preprocessing.py` (6 اختبارات): تنظيف النصوص العربية، التشكيل، الكشيدة، الأرابيزي، واختزال التكرار.
+  * `test_preprocessing.py` (6 اختبارات): تنظيف النصوص العربية، إزالة وسوم HTML، التشكيل، الكشيدة، الأرابيزي (مع الحفاظ على الأرقام الصرفة)، واختزال التكرار.
   * `test_classification.py` (6 اختبارات): دقة تصنيف الفئات الخمس، التنبيه التلقائي عبر الواتساب، والتحقق من صحة معرّف الطفل UUID.
   * `test_notifications.py` (3 اختبارات): تفضيلات التنبيهات واختبار رسائل الواتساب الرسمية.
   * `test_policies.py` (2 اختباران): سياسات الحظر، الحساسية، وصلاحيات الوصول.
   * `test_activity.py` (1 اختبار): تسجيل أحداث التصفح وتطبيق استثناءات السياسة.
-  * `test_reports.py` (1 اختبار): الإحصائيات التحليلية وتصدير ملفات PDF صالحة وسليمة ثنائياً (`%PDF-`).
+  * `test_reports.py` (1 اختبار): الإحصائيات التحليلية وتصدير ملفات PDF عربية صالحة وسليمة ثنائياً (`%PDF-`).
+  * `test_security_and_admin.py` (10 اختبارات شاملة): تشفير كلمات المرور العربية الطويلة (>72 بايت)، منع ثغرات IDOR والوصول غير المصرح به، ربط وفك اقتران جهاز الأندرويد برمز 6 أرقام (`POST /auth/pair-device`)، منع الإنذارات الكاذبة لكلمات تحتوي `"دم"` (`كرة القدم`، `القادم`، `خدمة`، `تبرع بالدم`)، طلبات السماح من الطفل (`UC-C5`)، وإدارة النظام الكاملة للمشرف (`Admin Module FR10–FR13`).
 
 ### 2. لوحة تحكم الويب (`client/Dashboard`):
-* نجاح بناء وتوليد **13 مساراً وصفحة ثابتة** بنسبة 100% دون أي خطأ في TypeScript أو التصميم، مع اتصال كامل ببيانات الخادم الحية.
+* تغطية كاملة لـ **18 مساراً وصفحة** (شاملة مسارات ولي الأمر `(parent)` ومسارات المشرف `(admin)` المحمية عبر `middleware.ts`) مع اتصال كامل ببيانات الخادم الحية.
 
 ---
 

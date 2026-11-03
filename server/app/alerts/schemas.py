@@ -37,6 +37,8 @@ class UpdateNotificationPreferencesRequest(BaseModel):
 
 class TestWhatsAppRequest(BaseModel):
     phone_number: str | None = None  # If None, use user's saved whatsapp_phone
+    phone: str | None = None  # Alias for dashboard compatibility
+    message: str | None = None
 
 
 class TestWhatsAppResponse(BaseModel):

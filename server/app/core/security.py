@@ -1,6 +1,7 @@
 """
 Security utilities: password hashing (bcrypt) and JWT encode/decode.
 """
+import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -12,17 +13,29 @@ from app.core.config import settings
 
 # ── Password ──────────────────────────────────────────────
 
-def hash_password(password: str) -> str:
+def _prepare_password_bytes(password: str) -> bytes:
+    """
+    Prepare UTF-8 password bytes for bcrypt.
+    For passwords exceeding bcrypt's 72-byte limit (e.g., >36 Arabic UTF-8 chars),
+    pre-hash with SHA-256 hex digest (64 ASCII bytes) to prevent silent truncation.
+    """
     pwd_bytes = password.encode("utf-8")
+    if len(pwd_bytes) > 72:
+        return hashlib.sha256(pwd_bytes).hexdigest().encode("ascii")
+    return pwd_bytes
+
+
+def hash_password(password: str) -> str:
+    prepared = _prepare_password_bytes(password)
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(pwd_bytes[:72], salt).decode("utf-8")
+    return bcrypt.hashpw(prepared, salt).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    pwd_bytes = plain.encode("utf-8")
+    prepared = _prepare_password_bytes(plain)
     hashed_bytes = hashed.encode("utf-8")
     try:
-        return bcrypt.checkpw(pwd_bytes[:72], hashed_bytes)
+        return bcrypt.checkpw(prepared, hashed_bytes)
     except Exception:
         return False
 

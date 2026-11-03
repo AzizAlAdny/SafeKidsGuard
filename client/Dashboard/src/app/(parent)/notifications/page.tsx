@@ -74,7 +74,7 @@ export default function NotificationsPage() {
 
     try {
       const res = await api.post("/notifications/test-whatsapp", {
-        phone: whatsappPhone.trim() || undefined,
+        phone_number: whatsappPhone.trim() || undefined,
       });
       setMessage({
         type: "success",

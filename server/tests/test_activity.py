@@ -25,7 +25,7 @@ async def test_activity_logging_and_policy_enforcement(client):
     child_id = child_res.json()["id"]
 
     # 2. Predict with Violence content (Default Policy: block_violence is True)
-    pred_res1 = await client.post("/classification/predict", json={
+    pred_res1 = await client.post("/classification/predict", headers=parent_headers, json={
         "text": "سأقوم بقتلك وسفك دمائك بالسكين",
         "child_id": child_id,
         "context_app": "YouTube",
@@ -55,7 +55,7 @@ async def test_activity_logging_and_policy_enforcement(client):
     assert update_res.status_code == 200
 
     # 5. Predict again with violence: policy should allow it now
-    pred_res2 = await client.post("/classification/predict", json={
+    pred_res2 = await client.post("/classification/predict", headers=parent_headers, json={
         "text": "سأقوم بقتلك وسفك دمائك بالسكين",
         "child_id": child_id,
         "context_app": "CallOfDuty",

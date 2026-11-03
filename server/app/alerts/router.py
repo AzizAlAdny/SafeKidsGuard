@@ -83,12 +83,17 @@ async def update_preferences(
     response_model=TestWhatsAppResponse,
     summary="Send a test Arabic alert template via WhatsApp Business API",
 )
+@router.post(
+    "/whatsapp-test",
+    response_model=TestWhatsAppResponse,
+    include_in_schema=False,
+)
 async def test_whatsapp(
     data: TestWhatsAppRequest,
     current_user: User = Depends(require_role("parent", "admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    target_phone = data.phone_number
+    target_phone = data.phone_number or data.phone
 
     if not target_phone:
         result = await db.execute(

@@ -1,6 +1,7 @@
 """
-Auth routes: /auth/register, /auth/login, /auth/refresh, /auth/me, /auth/children
+Auth routes: /auth/register, /auth/login, /auth/refresh, /auth/logout, /auth/me, /auth/children, /auth/pair-device
 """
+import uuid
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,9 +13,15 @@ from app.auth.models import User
 from app.auth.schemas import (
     CreateChildRequest,
     LoginRequest,
+    LogoutRequest,
+    MessageResponse,
+    PairDeviceRequest,
+    PairDeviceResponse,
+    PairingPinResponse,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    UnpairDeviceRequest,
     UserResponse,
 )
 
@@ -45,6 +52,17 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     return await service.refresh_access_token(db, data.refresh_token)
 
 
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    data: LogoutRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke refresh tokens for the authenticated user."""
+    refresh_tok = data.refresh_token if data else None
+    return await service.logout_user(db, current_user, refresh_tok)
+
+
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
     """Return the authenticated user's profile."""
@@ -55,7 +73,7 @@ async def me(current_user: User = Depends(get_current_user)):
     "/children",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role("parent"))],
+    dependencies=[Depends(require_role("parent", "admin"))],
 )
 async def create_child(
     data: CreateChildRequest,
@@ -64,7 +82,7 @@ async def create_child(
 ):
     """
     Create a child account linked to the authenticated parent's family.
-    Only parents can call this endpoint.
+    Only parents (or admins) can call this endpoint.
     """
     return await service.create_child_account(db, data, current_user)
 
@@ -80,3 +98,38 @@ async def list_children(
 ):
     """Retrieve all children linked to the authenticated parent."""
     return await service.get_parent_children(db, current_user)
+
+
+@router.post(
+    "/children/{child_id}/pairing-pin",
+    response_model=PairingPinResponse,
+    dependencies=[Depends(require_role("parent", "admin"))],
+)
+async def create_pairing_pin(
+    child_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a new 6-digit pairing PIN for linking a child's Android device."""
+    return await service.generate_pairing_pin(db, current_user, child_id)
+
+
+@router.post("/pair-device", response_model=PairDeviceResponse)
+@limiter.limit("10/minute")
+async def pair_device(
+    request: Request,
+    data: PairDeviceRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Redeem a 6-digit pairing PIN from the Android child app and issue a child JWT session."""
+    return await service.pair_child_device(db, data.pairing_pin)
+
+
+@router.post("/unpair-device", response_model=MessageResponse)
+async def unpair_device(
+    data: UnpairDeviceRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify parent password before allowing a child device to unpair."""
+    return await service.unpair_child_device(db, current_user, data.parent_password)

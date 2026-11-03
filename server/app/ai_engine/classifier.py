@@ -11,7 +11,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.ai_engine.model import get_arabert, get_camelbert, is_models_loaded
-from app.ai_engine.preprocessing import preprocess_arabic
+from app.ai_engine.preprocessing import normalize_arabic, preprocess_arabic
 
 logger = logging.getLogger(__name__)
 
@@ -30,58 +30,103 @@ CATEGORIES = [
     CATEGORY_HATE_SPEECH,
 ]
 
-# Dialectal markers commonly found in Saudi / Gulf / Levantine social media
+# Dialectal markers commonly found in Gulf / Egyptian / Levantine social media
+GULF_DIALECT_PATTERNS = re.compile(
+    r"\b(وش|ليش|شلونك|ياخي|ترا|عشان|حقك|حقتك|ذلحين|الحين|مافيه|مافي|يبغى|يبغي|ابي|ودك|كذا|اذلف)\b"
+)
+EGYPTIAN_DIALECT_PATTERNS = re.compile(
+    r"\b(عايز|عاوز|ازيك|دلوقتي|كده|ليه|فين|مش|مفيش|بتاع|محدش|هقتلك)\b"
+)
+LEVANTINE_DIALECT_PATTERNS = re.compile(
+    r"\b(هيك|شو|يلا|بدك|بدي|هلق|هلأ|ليش|منيح|هاد|هاظ)\b"
+)
 DIALECTAL_PATTERNS = re.compile(
-    r"\b(وش|ليش|شلونك|ياخي|ترا|عشان|حقك|حقتك|ذلحين|الحين|مافيه|مافي|يبغى|ابي|ودك|كذا|هيك|شو|يلا|بدك)\b"
+    r"\b(وش|ليش|شلونك|ياخي|ترا|عشان|حقك|حقتك|ذلحين|الحين|مافيه|مافي|يبغى|يبغي|ابي|ودك|كذا|هيك|شو|يلا|بدك|بدي|عايز|دلوقتي|محدش)\b"
 )
 
-# High-precision Arabic safety patterns (fallback & fast-path)
-CYBERBULLYING_PATTERNS = [
-    r"يا\s*(غبي|حيوان|كلب|حمار|فاشل|قبيح|تافه|حقير|وسخ)",
-    r"(تستاهل|بنضربك|راح\s*تشوف|بفضحك|بنشر\s*صورك|يا\s*بشع)",
-    r"(محد\s*يحبك|انتحر|موت\s*احسن|يا\s*معفن)",
-]
 
-VIOLENCE_PATTERNS = [
-    r"(بقتلك|بذبحك|بضربك|اطلقه|طعن|سكين|مسدس|دم|قتل|ذبح|تصفية)",
-    r"(هجوم|تفجير|اعتداء|كسر\s*راسك|اخنقك)",
-]
+def _compile_normalized_patterns(raw_patterns: list[str]) -> list[re.Pattern]:
+    """Normalize Arabic variants in regex patterns so they match preprocessed text."""
+    return [re.compile(normalize_arabic(p)) for p in raw_patterns]
 
-HATE_SPEECH_PATTERNS = [
-    r"(كلاب|حثالة|اطردوهم|ابيدوهم|ما\s*يستاهلون\s*يعيشون|متخلفين)",
-    r"(عنصري|طائفي|مجنسين|شحاتين)",
-]
 
-SEXUAL_PATTERNS = [
-    r"(صور\s*(عارية|جنسية|خاصة)|سكس|اباحي|ممارسة\s*جنس|تعال\s*خاص\s*نتعرى)",
-    r"(عري|مثير|نيك|شرموط)",
-]
+# Benign educational/medical/sports phrases that contain words like "دم" or "مخدرات"
+BENIGN_CONTEXT_PATTERNS = _compile_normalized_patterns([
+    r"\b(تبرع\s*بالدم|ضغط\s*الدم|تحليل\s*الدم|فصيله\s*الدم|فقر\s*الدم|سحب\s*الدم|خلايا\s*الدم)\b",
+    r"\b(كره\s*القدم|مباراه|بطوله|الاسبوع\s*القادم|الشهر\s*القادم|العام\s*القادم)\b",
+    r"\b(مكافحه\s*المخدرات|الوقايه\s*من\s*المخدرات|مكافحه\s*التنمر|اضرار\s*التدخين)\b",
+])
+
+# High-precision Arabic safety patterns (fallback & fast-path, normalized for MSA + Gulf/Egyptian/Levantine)
+CYBERBULLYING_PATTERNS = _compile_normalized_patterns([
+    r"\bيا\s*(غبي|حيوان|كلب|حمار|فاشل|قبيح|تافه|حقير|وسخ|بشع|معفن|معتوه|اهبل|تيس|ذليل)\b",
+    r"\b(انت|انتم)\s*(غبي|فاشل|حيوان|كلب|حمار|تافه|حقير|قبيح|بشع)\b",
+    r"(تستاهل|بنضربك|ساضربك|حاضربك|هضربك|راح\s*نضربك|راح\s*تشوف|بفضحك|بنشر\s*صورك)",
+    r"(محد\s*يحبك|محدش\s*بيحبك|الكل\s*يكرهك|روح\s*انتحر|موت\s*احسن|اذلف\s*يا|انقلع\s*يا)",
+    r"(وش\s*ذا\s*الغباء|شكلك\s*مقرف|وجهك\s*قبيح|يا\s*عديم\s*الفائده)",
+])
+
+VIOLENCE_PATTERNS = _compile_normalized_patterns([
+    r"\b(بقتلك|ساقتلك|سأقتلك|ساقوم\s*بقتلك|هقتلك|حقتلك|بدي\s*اقتلك|عايز\s*اقتله|عايز\s*اقتلك|نقتله|اقتله|اقتلها|اقتلوهم)\b",
+    r"\b(بذبحك|ساذبحك|أذبحك|اذبحك|اذبحه|رح\s*اذبحك|بضربك|ضرب\s*مبرح|سفك\s*دمائك|سفك\s*الدماء)\b",
+    r"\b(اطلقه|طعن|بالسكين|سكين|مسدس|بالمسدس|قنبله|متفجره|تفجير|ذبح|تصفيه\s*جسديه)\b",
+    r"\b(هجوم\s*مسلح|اعتداء|كسر\s*راسك|اخنقك|بدي\s*انتحر|سانتحر|اخلص\s*من\s*حياتي)\b",
+    # Standalone word "دم" or "قتل" only when accompanied by violent verbs/nouns (never inside القادم / خدمة / كرة القدم)
+    r"(?<![\u0600-\u06FF\w])(نزف\s*دم|دمك\s*مهدور|بحر\s*من\s*الدم|جريمه\s*قتل|تهديد\s*بالقتل)(?![\u0600-\u06FF\w])",
+])
+
+HATE_SPEECH_PATTERNS = _compile_normalized_patterns([
+    r"\b(حثاله|اطردوهم|ابيدوهم|ما\s*يستاهلون\s*يعيشون|متخلفين)\b",
+    r"(هذول\s*(حثاله|كلاب)|هؤلاء\s*(حثاله|كلاب)|كلاب\s*وما\s*يستاهلون)",
+    r"\b(عنصري|عنصريه|طائفي|طائفيه|كراهيه|مجنسين|شحاتين|عبيد|كفار\s*اقتلوا)\b",
+])
+
+SEXUAL_PATTERNS = _compile_normalized_patterns([
+    r"(صور\s*(عاريه|جنسيه|خاصه|اباحيه)|فيديو\s*اباحي|مقاطع\s*اباحيه|افلام\s*اباحيه)",
+    r"\b(سكس|اباحي|اباحيه|ممارسه\s*جنس|تعال\s*خاص\s*نتعرى|نتعري|تحرش\s*جنسي)\b",
+    r"\b(عري\s*كامل|نيك|شرموط|شرموطه|عاهره|دعاره)\b",
+])
+
+
+def detect_dialect(text: str) -> str:
+    """Detect whether the Arabic text uses Gulf, Egyptian, Levantine, or MSA."""
+    norm = normalize_arabic(text)
+    if GULF_DIALECT_PATTERNS.search(norm):
+        return "Gulf"
+    if EGYPTIAN_DIALECT_PATTERNS.search(norm):
+        return "Egyptian"
+    if LEVANTINE_DIALECT_PATTERNS.search(norm):
+        return "Levantine"
+    return "MSA"
 
 
 def is_dialectal(text: str) -> bool:
-    """Check if the text contains Gulf / Saudi dialectal markers."""
-    return bool(DIALECTAL_PATTERNS.search(text))
+    """Check if the text contains Gulf / Egyptian / Levantine dialectal markers."""
+    return bool(DIALECTAL_PATTERNS.search(normalize_arabic(text)))
 
 
 def check_rule_based_safety(normalized_text: str) -> tuple[str, float] | None:
     """
-    Fast-path safety evaluation using regex patterns.
+    Fast-path safety evaluation using normalized, word-boundary-safe regex patterns.
     Returns (category, confidence) or None if no explicit match.
     """
     for pattern in SEXUAL_PATTERNS:
-        if re.search(pattern, normalized_text):
+        if pattern.search(normalized_text):
             return CATEGORY_SEXUAL, 0.96
 
-    for pattern in VIOLENCE_PATTERNS:
-        if re.search(pattern, normalized_text):
-            return CATEGORY_VIOLENCE, 0.93
-
     for pattern in CYBERBULLYING_PATTERNS:
-        if re.search(pattern, normalized_text):
+        if pattern.search(normalized_text):
             return CATEGORY_CYBERBULLYING, 0.94
 
+    for pattern in VIOLENCE_PATTERNS:
+        if pattern.search(normalized_text):
+            # Disambiguate benign medical/sports contexts if no direct threat pronoun
+            if any(bp.search(normalized_text) for bp in BENIGN_CONTEXT_PATTERNS):
+                continue
+            return CATEGORY_VIOLENCE, 0.93
+
     for pattern in HATE_SPEECH_PATTERNS:
-        if re.search(pattern, normalized_text):
+        if pattern.search(normalized_text):
             return CATEGORY_HATE_SPEECH, 0.91
 
     return None

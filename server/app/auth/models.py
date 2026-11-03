@@ -23,6 +23,7 @@ class User(Base):
         Enum("parent", "child", "admin", name="user_role"), nullable=False
     )
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -104,5 +105,10 @@ class FamilyMember(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     nickname: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    pairing_pin: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    pairing_pin_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    is_paired: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     family: Mapped["Family"] = relationship(back_populates="members")

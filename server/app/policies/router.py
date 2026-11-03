@@ -76,4 +76,5 @@ async def update_policy_endpoint(
         child_id=child_id,
         parent_id=current_user.id,
         update_data=data,
+        is_admin=(current_user.role == "admin"),
     )
