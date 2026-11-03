@@ -11,7 +11,7 @@ import {
   Users,
   Sliders,
   FileText,
-  MessageSquare,
+  BellRing,
   LogOut,
   Menu,
   X,
@@ -26,7 +26,7 @@ const navItems = [
   { href: "/activity", label: "النشاط المباشر", icon: Activity },
   { href: "/policies", label: "سياسات الحماية", icon: Sliders },
   { href: "/reports", label: "التقارير التحليلية", icon: FileText },
-  { href: "/notifications", label: "إعدادات الإشعارات (واتساب)", icon: MessageSquare },
+  { href: "/notifications", label: "إعدادات الإشعارات", icon: BellRing },
 ];
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {

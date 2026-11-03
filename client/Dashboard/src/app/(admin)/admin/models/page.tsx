@@ -36,7 +36,7 @@ export default function AdminModelsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#07365f]">
-          مراقبة نماذج الذكاء الاصطناعي واللغة العربية (FR11, FR13)
+          مراقبة نماذج الذكاء الاصطناعي واللغة العربية
         </h1>
         <p className="text-sm text-[#387b94] mt-1">
           متابعة حالة نماذج AraBERTv2 و CAMeLBERT ومقاييس التصنيف الفوري للهجات العربية

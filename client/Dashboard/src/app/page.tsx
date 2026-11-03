@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, Bell, MessageCircle, ArrowLeft, Cpu } from "lucide-react";
+import { Shield, Lock, Bell, BellRing, ArrowLeft, Cpu } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 
 export default function HomePage() {
@@ -67,7 +67,7 @@ export default function HomePage() {
         </h1>
 
         <p className="text-base sm:text-xl text-[#d1f3fa] mb-10 max-w-2xl font-normal leading-relaxed">
-          نظام متقدم لرصد وتحليل المحتوى المسيء والتنمر الإلكتروني والتهديدات على أجهزة الأطفال، مع إرسال تنبيهات لحظية للأهل مباشرة عبر تطبيق الواتساب.
+          نظام متقدم لرصد وتحليل المحتوى المسيء والتنمر الإلكتروني والتهديدات على أجهزة الأطفال، مع إرسال تنبيهات لحظية فورية للأهل مباشرة.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -90,11 +90,11 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-20 text-right w-full">
           <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-xl bg-[#1bc3e4]/20 text-[#1bc3e4] flex items-center justify-center mb-4">
-              <MessageCircle className="w-6 h-6 text-[#2abe50]" />
+              <BellRing className="w-6 h-6 text-[#1bc3e4]" />
             </div>
-            <h3 className="font-bold text-lg mb-2">تنبيهات واتساب فورية</h3>
+            <h3 className="font-bold text-lg mb-2">تنبيهات أمنية فورية</h3>
             <p className="text-sm text-[#a4e7f4] leading-relaxed">
-              تصلك إشعارات الطوارئ ورصد المحتوى الخطير مباشرة على رقم واتساب الخاص بك عبر Meta Business API.
+              تصلك إشعارات الطوارئ ورصد المحتوى الخطير والتنمر فورياً ومباشرة على أجهزتكم عبر نظام التنبيه اللحظي.
             </p>
           </div>
 

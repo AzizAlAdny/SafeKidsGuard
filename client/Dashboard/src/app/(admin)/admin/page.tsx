@@ -52,7 +52,7 @@ export default function AdminOverviewPage() {
           لوحة الإدارة المركزية — Safe Kids Guard
         </h1>
         <p className="text-sm text-[#387b94] mt-1">
-          مراقبة أداء النظام، حسابات المستخدمين، دقة نماذج الذكاء الاصطناعي، ومراجعة البلاغات (FR10–FR13)
+          مراقبة أداء النظام، حسابات المستخدمين، دقة نماذج الذكاء الاصطناعي، ومراجعة البلاغات
         </p>
       </div>
 
@@ -111,7 +111,7 @@ export default function AdminOverviewPage() {
         >
           <div className="flex items-center gap-3">
             <Users className="w-6 h-6 text-[#159cb7]" />
-            <h2 className="font-bold text-lg text-[#07365f]">إدارة حسابات المستخدمين (UC-A1)</h2>
+            <h2 className="font-bold text-lg text-[#07365f]">إدارة حسابات المستخدمين</h2>
           </div>
           <p className="text-xs text-[#387b94]">
             عرض وتفعيل أو تعطيل وحذف حسابات أولياء الأمور والأطفال وتعيين صلاحيات المشرفين.
@@ -125,7 +125,7 @@ export default function AdminOverviewPage() {
           <div className="flex items-center gap-3">
             <BrainCircuit className="w-6 h-6 text-[#7455aa]" />
             <h2 className="font-bold text-lg text-[#07365f]">
-              مراقبة نماذج الذكاء الاصطناعي واللغة العربية (UC-A2, UC-A5)
+              مراقبة نماذج الذكاء الاصطناعي واللغة العربية
             </h2>
           </div>
           <p className="text-xs text-[#387b94]">
@@ -140,7 +140,7 @@ export default function AdminOverviewPage() {
           <div className="flex items-center gap-3">
             <Flag className="w-6 h-6 text-amber-500" />
             <h2 className="font-bold text-lg text-[#07365f]">
-              مراجعة المحتوى المبلّغ وطلبات السماح (UC-A4)
+              مراجعة المحتوى المبلّغ وطلبات السماح
             </h2>
           </div>
           <p className="text-xs text-[#387b94]">
@@ -155,7 +155,7 @@ export default function AdminOverviewPage() {
           <div className="flex items-center gap-3">
             <Settings className="w-6 h-6 text-[#07365f]" />
             <h2 className="font-bold text-lg text-[#07365f]">
-              إعدادات النظام والأمان الشاملة (UC-A6)
+              إعدادات النظام والأمان الشاملة
             </h2>
           </div>
           <p className="text-xs text-[#387b94]">

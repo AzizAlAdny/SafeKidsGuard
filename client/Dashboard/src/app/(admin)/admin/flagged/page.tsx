@@ -60,7 +60,7 @@ export default function AdminFlaggedPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#07365f]">
-            مراجعة المحتوى المبلّغ وطلبات السماح (UC-A4, UC-C5)
+            مراجعة المحتوى المبلّغ وطلبات السماح
           </h1>
           <p className="text-sm text-[#387b94] mt-1">
             التحقق من التنبيهات وطلبات الأطفال لتصحيح الإيجابيات الخاطئة وتحسين دقة النماذج

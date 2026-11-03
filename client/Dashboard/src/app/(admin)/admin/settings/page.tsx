@@ -59,7 +59,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-[#07365f]">
-          إعدادات النظام والأمان الشاملة (FR12, UC-A6)
+          إعدادات النظام والأمان الشاملة
         </h1>
         <p className="text-sm text-[#387b94] mt-1">
           ضبط معايير الذكاء الاصطناعي والعتبة الافتراضية للحظر على مستوى النظام

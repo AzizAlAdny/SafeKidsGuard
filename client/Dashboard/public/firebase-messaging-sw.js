@@ -1,5 +1,5 @@
 // Firebase Cloud Messaging Service Worker for Safe Kids Guard
-// Fallback background push notifications for parents without WhatsApp
+// Background push notifications for parents on web and mobile browsers
 
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');

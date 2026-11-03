@@ -19,10 +19,10 @@ import { useAuthStore } from "@/lib/auth-store";
 
 const adminNavItems = [
   { href: "/admin", label: "نظرة عامة للنظام", icon: LayoutDashboard },
-  { href: "/admin/users", label: "إدارة المستخدمين (FR10)", icon: Users },
-  { href: "/admin/models", label: "نماذج الذكاء الاصطناعي (FR11)", icon: BrainCircuit },
-  { href: "/admin/flagged", label: "مراجعة المحتوى المبلّغ (UC-A4)", icon: Flag },
-  { href: "/admin/settings", label: "إعدادات الأمان والنظام (FR12)", icon: Settings },
+  { href: "/admin/users", label: "إدارة المستخدمين", icon: Users },
+  { href: "/admin/models", label: "نماذج الذكاء الاصطناعي", icon: BrainCircuit },
+  { href: "/admin/flagged", label: "مراجعة المحتوى المبلّغ", icon: Flag },
+  { href: "/admin/settings", label: "إعدادات الأمان والنظام", icon: Settings },
   { href: "/dashboard", label: "لوحة تحكم ولي الأمر", icon: ShieldCheck },
 ];
 
