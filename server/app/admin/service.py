@@ -134,6 +134,8 @@ async def get_ai_metrics(db: AsyncSession) -> AdminAIMetricsResponse:
 async def list_flagged_content(
     db: AsyncSession,
     review_status: str | None = None,
+    category: str | None = None,
+    search: str | None = None,
     limit: int = 50,
 ) -> list[AdminFlaggedItem]:
     """List flagged/blocked alerts and child access requests for admin review."""
@@ -145,6 +147,16 @@ async def list_flagged_content(
     )
     if review_status and review_status.upper() != "ALL":
         stmt = stmt.where(Alert.review_status == review_status.upper())
+    if category and category.upper() != "ALL":
+        stmt = stmt.where(Alert.category == category.upper())
+    if search:
+        pat = f"%{search.strip()}%"
+        stmt = stmt.where(
+            Alert.content_snippet.ilike(pat)
+            | Alert.context_app.ilike(pat)
+            | Alert.access_request_reason.ilike(pat)
+            | User.full_name.ilike(pat)
+        )
 
     res = await db.execute(stmt)
     items: list[AdminFlaggedItem] = []

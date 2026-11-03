@@ -79,6 +79,8 @@ async def predict_content(
 )
 async def list_alerts(
     category: str | None = Query(default=None, description="Filter by category (CYBERBULLYING, SEXUAL, VIOLENCE, HATE_SPEECH)"),
+    child_id: uuid.UUID | None = Query(default=None, description="Filter by child UUID"),
+    search: str | None = Query(default=None, description="Search in content snippet or app name"),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(require_role("parent", "admin")),
@@ -89,6 +91,8 @@ async def list_alerts(
         db,
         parent_id=current_user.id,
         category=category,
+        child_id=child_id,
+        search=search,
         limit=limit,
         offset=offset,
         is_admin=(current_user.role == "admin"),

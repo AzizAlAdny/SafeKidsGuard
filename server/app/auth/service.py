@@ -446,3 +446,35 @@ async def unpair_child_device(
         return MessageResponse(message="Device unpaired successfully")
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+
+async def delete_parent_child(
+    db: AsyncSession,
+    current_user: User,
+    child_id: uuid.UUID,
+) -> dict:
+    """Delete a child account linked to the authenticated parent (or admin)."""
+    if current_user.role != "admin":
+        stmt = (
+            select(FamilyMember)
+            .join(Family, Family.id == FamilyMember.family_id)
+            .where(Family.parent_id == current_user.id, FamilyMember.child_id == child_id)
+        )
+        res = await db.execute(stmt)
+        if not res.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this child account",
+            )
+
+    child = await db.get(User, child_id)
+    if not child:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Child account not found",
+        )
+
+    await db.delete(child)
+    await db.commit()
+    return {"message": "Child account deleted successfully", "deleted_child_id": str(child_id)}
+

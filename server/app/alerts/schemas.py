@@ -15,23 +15,25 @@ class NotificationPreferencesResponse(BaseModel):
 
 
 class UpdateNotificationPreferencesRequest(BaseModel):
-    whatsapp_phone: str | None = Field(default=None, description="Saudi format: 966XXXXXXXXX")
+    whatsapp_phone: str | None = Field(default=None, description="International E.164 phone format: 7 to 15 digits")
     whatsapp_enabled: bool = True
     web_push_token: str | None = None
     web_push_enabled: bool = False
 
     @field_validator("whatsapp_phone")
     @classmethod
-    def validate_saudi_phone(cls, v: str | None) -> str | None:
+    def validate_phone(cls, v: str | None) -> str | None:
         if v is None or v == "":
             return None
-        cleaned = re.sub(r"[\s\-+]", "", v)
-        if cleaned.startswith("05"):
+        cleaned = re.sub(r"[\s\-+()]", "", v)
+        if cleaned.startswith("00"):
+            cleaned = cleaned[2:]
+        if cleaned.startswith("05") and len(cleaned) == 10:
             cleaned = "966" + cleaned[1:]
-        elif cleaned.startswith("5"):
+        elif cleaned.startswith("5") and len(cleaned) == 9:
             cleaned = "966" + cleaned
-        if not re.match(r"^9665\d{8}$", cleaned):
-            raise ValueError("رقم الواتساب يجب أن يكون بصيغة سعودية صحيحة (مثال: 966501234567)")
+        if not re.fullmatch(r"\d{7,15}", cleaned):
+            raise ValueError("رقم الواتساب يجب أن يكون بصيغة دولية صحيحة مع رمز الدولة (مثال: 966501234567 أو 201012345678)")
         return cleaned
 
 

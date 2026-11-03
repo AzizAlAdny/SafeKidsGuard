@@ -38,7 +38,7 @@ export function extractErrorMessage(err: any, fallback: string = "حدث خطأ 
             return "الاسم الكامل مطلوب (حرفين على الأقل)";
           }
           if (field === "whatsapp_phone") {
-            return "رقم الواتساب يجب أن يكون بالصيغة السعودية (966XXXXXXXXX)";
+            return "رقم الواتساب يجب أن يكون بصيغة دولية صحيحة مع رمز الدولة (مثال: 966501234567 أو 201012345678)";
           }
           return `${field ? field + ": " : ""}${msg}`;
         }
@@ -64,3 +64,20 @@ export function extractErrorMessage(err: any, fallback: string = "حدث خطأ 
 
   return fallback;
 }
+
+/**
+ * Normalize Arabic text for robust search and filter matching.
+ * Unifies Alef variations (أ, إ, آ, ٱ -> ا), Taa Marbuta (ة -> ه), Yaa (ى -> ي),
+ * removes Arabic diacritics / tashkeel, and lowercases latin text.
+ */
+export function normalizeArabicText(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/[ة]/g, "ه")
+    .replace(/[ى]/g, "ي")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .trim();
+}
+

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractErrorMessage } from "@/lib/utils";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Child {
   id: string;
@@ -61,6 +62,7 @@ export default function PoliciesPage() {
   // Input states for blacklists
   const [newUrl, setNewUrl] = useState("");
   const [newApp, setNewApp] = useState("");
+  const [urlToDelete, setUrlToDelete] = useState<string | null>(null);
 
   // Load children list
   useEffect(() => {
@@ -546,8 +548,9 @@ export default function PoliciesPage() {
                       <span className="text-[#07365f] truncate">{url}</span>
                       <button
                         type="button"
-                        onClick={() => removeUrl(url)}
-                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                        onClick={() => setUrlToDelete(url)}
+                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer transition"
+                        title="حذف الموقع من القائمة المحظورة"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -571,6 +574,23 @@ export default function PoliciesPage() {
           </div>
         </form>
       ) : null}
+
+      {/* URL Removal Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(urlToDelete)}
+        onClose={() => setUrlToDelete(null)}
+        onConfirm={() => {
+          if (urlToDelete) {
+            removeUrl(urlToDelete);
+            setUrlToDelete(null);
+          }
+        }}
+        title="تأكيد إزالة الموقع من القائمة السوداء"
+        description={`هل أنت متأكد من رغبتك في إزالة الموقع "${urlToDelete}" من قائمة المواقع المحظورة؟ بعد حفظ السياسة، سيتمكن الطفل من زيارة هذا الموقع بحرية.`}
+        confirmText="إزالة من المحظورات"
+        cancelText="إلغاء"
+        variant="warning"
+      />
     </div>
   );
 }

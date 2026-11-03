@@ -158,13 +158,13 @@ export default function NotificationsPage() {
                 type="tel"
                 value={whatsappPhone}
                 onChange={(e) => setWhatsappPhone(e.target.value)}
-                placeholder="966501234567"
+                placeholder="966501234567 أو 201012345678"
                 dir="ltr"
                 className="w-full px-4 py-3 rounded-xl border border-[#b5d7e3] focus:border-[#2abe50] focus:ring-2 focus:ring-[#2abe50]/20 outline-none transition text-sm text-[#07365f] font-mono"
               />
             </div>
             <p className="text-xs text-[#387b94] mt-1.5">
-              الصيغة المعتمدة: الرمز الدولي 966 متبوعاً بـ 9 أرقام (مثال: 966501234567).
+              الصيغة المعتمدة: الرمز الدولي للدولة متبوعاً برقم الهاتف (مثال: 966501234567 أو 201012345678 أو 971501234567).
             </p>
           </div>
 

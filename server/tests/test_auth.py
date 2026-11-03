@@ -107,6 +107,19 @@ async def test_invalid_whatsapp_phone(client):
 
 
 @pytest.mark.asyncio
+async def test_register_international_phone(client):
+    resp = await client.post("/auth/register", json={
+        "email": "intl_parent@test.com",
+        "password": "Password123",
+        "full_name": "عمر فاروق",
+        "role": "parent",
+        "whatsapp_phone": "+201012345678",  # International Egyptian format with +
+    })
+    assert resp.status_code == 201
+    assert "access_token" in resp.json()
+
+
+@pytest.mark.asyncio
 async def test_refresh_token(client):
     reg = await client.post("/auth/register", json={
         "email": "refresh@test.com",
@@ -163,6 +176,16 @@ async def test_create_child_account(client):
     v1_list_resp = await client.get("/api/v1/auth/children", headers={"Authorization": f"Bearer {token}"})
     assert v1_list_resp.status_code == 200
     assert len(v1_list_resp.json()["children"]) == 1
+
+    # Test deleting child account
+    child_id = child_data["id"]
+    del_resp = await client.delete(f"/auth/children/{child_id}", headers={"Authorization": f"Bearer {token}"})
+    assert del_resp.status_code == 200
+
+    # Ensure list is now empty
+    list_resp_after = await client.get("/auth/children", headers={"Authorization": f"Bearer {token}"})
+    assert list_resp_after.status_code == 200
+    assert len(list_resp_after.json()["children"]) == 0
 
 
 @pytest.mark.asyncio

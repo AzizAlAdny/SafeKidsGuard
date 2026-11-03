@@ -114,6 +114,20 @@ async def create_pairing_pin(
     return await service.generate_pairing_pin(db, current_user, child_id)
 
 
+@router.delete(
+    "/children/{child_id}",
+    response_model=dict,
+    dependencies=[Depends(require_role("parent", "admin"))],
+)
+async def remove_child_account(
+    child_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a linked child account (verified parent or admin)."""
+    return await service.delete_parent_child(db, current_user, child_id)
+
+
 @router.post("/pair-device", response_model=PairDeviceResponse)
 @limiter.limit("10/minute")
 async def pair_device(

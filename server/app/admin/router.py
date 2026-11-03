@@ -67,11 +67,19 @@ async def get_ai_metrics(db: AsyncSession = Depends(get_db)):
 @router.get("/flagged", response_model=list[AdminFlaggedItem])
 async def get_flagged_content(
     review_status: str | None = Query(default=None, description="Filter by PENDING, ACCESS_REQUESTED, APPROVED_FALSE_POSITIVE, CONFIRMED_THREAT"),
+    category: str | None = Query(default=None, description="Filter by threat category"),
+    search: str | None = Query(default=None, description="Search snippet, app, child name, or reason"),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieve flagged content snippets and child access appeals for review (FR11, UC-A4)."""
-    return await service.list_flagged_content(db, review_status=review_status, limit=limit)
+    return await service.list_flagged_content(
+        db,
+        review_status=review_status,
+        category=category,
+        search=search,
+        limit=limit,
+    )
 
 
 @router.patch("/flagged/{alert_id}", response_model=AdminFlaggedItem)

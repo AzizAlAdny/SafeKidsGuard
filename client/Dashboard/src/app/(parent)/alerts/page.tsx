@@ -12,8 +12,11 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { normalizeArabicText } from "@/lib/utils";
 
 interface AlertItem {
   id: string;
@@ -59,24 +62,30 @@ function formatAlertDate(dateStr: string): string {
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [childrenList, setChildrenList] = useState<ChildItem[]>([]);
   const [childrenMap, setChildrenMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
+  const [selectedChildId, setSelectedChildId] = useState("");
   const [search, setSearch] = useState("");
 
   const fetchAlertsData = async () => {
     setLoading(true);
     try {
+      const params: Record<string, string> = {};
+      if (filter !== "ALL") params.category = filter;
+      if (selectedChildId) params.child_id = selectedChildId;
+
       const [alertsRes, childrenRes] = await Promise.allSettled([
-        api.get("/alerts", {
-          params: filter !== "ALL" ? { category: filter } : {},
-        }),
+        api.get("/alerts", { params }),
         api.get("/auth/children"),
       ]);
 
       if (childrenRes.status === "fulfilled" && childrenRes.value.data?.children) {
+        const list: ChildItem[] = childrenRes.value.data.children;
+        setChildrenList(list);
         const map: Record<string, string> = {};
-        childrenRes.value.data.children.forEach((c: ChildItem) => {
+        list.forEach((c: ChildItem) => {
           map[c.id] = c.full_name || c.nickname || "طفل";
         });
         setChildrenMap(map);
@@ -97,24 +106,42 @@ export default function AlertsPage() {
 
   useEffect(() => {
     fetchAlertsData();
-  }, [filter]);
+  }, [filter, selectedChildId]);
+
+  const resetFilters = () => {
+    setFilter("ALL");
+    setSelectedChildId("");
+    setSearch("");
+  };
+
+  const hasActiveFilters = filter !== "ALL" || Boolean(selectedChildId) || Boolean(search.trim());
 
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
+      // Child filter
+      if (selectedChildId && alert.child_id !== selectedChildId) {
+        return false;
+      }
+
       const childName = childrenMap[alert.child_id] || "طفل";
       const catConfig = CATEGORY_MAP[alert.category] || { label: alert.category };
-      const term = search.trim().toLowerCase();
+      const term = normalizeArabicText(search);
 
       if (!term) return true;
 
+      const normChild = normalizeArabicText(childName);
+      const normCat = normalizeArabicText(catConfig.label);
+      const normSnippet = normalizeArabicText(alert.content_snippet);
+      const normApp = normalizeArabicText(alert.context_app);
+
       return (
-        childName.toLowerCase().includes(term) ||
-        catConfig.label.toLowerCase().includes(term) ||
-        alert.content_snippet.toLowerCase().includes(term) ||
-        (alert.context_app && alert.context_app.toLowerCase().includes(term))
+        normChild.includes(term) ||
+        normCat.includes(term) ||
+        normSnippet.includes(term) ||
+        normApp.includes(term)
       );
     });
-  }, [alerts, childrenMap, search]);
+  }, [alerts, childrenMap, selectedChildId, search]);
 
   return (
     <div className="space-y-6">
@@ -136,41 +163,84 @@ export default function AlertsPage() {
         </button>
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#b5d7e3]/40 shadow-sm">
-        {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
-          {[
-            { id: "ALL", label: "الكل" },
-            { id: "CYBERBULLYING", label: "تنمر إلكتروني" },
-            { id: "SEXUAL", label: "محتوى غير لائق" },
-            { id: "VIOLENCE", label: "عنف وتحريض" },
-            { id: "HATE_SPEECH", label: "خطاب كراهية" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                filter === tab.id
-                  ? "bg-[#07365f] text-white shadow-sm"
-                  : "bg-gray-100 text-[#387b94] hover:bg-gray-200"
-              }`}
+      {/* Filters & Search Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#b5d7e3]/40 shadow-sm">
+        {/* Left Side: Child Filter & Category Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Child Select Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <select
+              value={selectedChildId}
+              onChange={(e) => setSelectedChildId(e.target.value)}
+              className="px-3 py-1.5 rounded-xl border border-[#b5d7e3] bg-[#edf5f8]/50 text-xs font-semibold text-[#07365f] outline-none cursor-pointer focus:border-[#1bc3e4]"
             >
-              {tab.label}
-            </button>
-          ))}
+              <option value="">جميع الأطفال</option>
+              {childrenList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name || c.nickname}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="h-5 w-px bg-gray-200 hidden sm:block" />
+
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            {[
+              { id: "ALL", label: "الكل" },
+              { id: "CYBERBULLYING", label: "تنمر إلكتروني" },
+              { id: "SEXUAL", label: "محتوى غير لائق" },
+              { id: "VIOLENCE", label: "عنف وتحريض" },
+              { id: "HATE_SPEECH", label: "خطاب كراهية" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                  filter === tab.id
+                    ? "bg-[#07365f] text-white shadow-sm"
+                    : "bg-gray-100 text-[#387b94] hover:bg-gray-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث في السجل..."
-            className="w-full px-3 py-2 pl-9 rounded-xl border border-[#b5d7e3] text-xs text-[#07365f] outline-none focus:border-[#1bc3e4]"
-          />
-          <Search className="w-4 h-4 text-[#387b94] absolute left-3 top-2.5" />
+        {/* Right Side: Search & Reset */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-64">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="بحث بالنص، الطفل، أو التطبيق..."
+              className="w-full px-3 py-2 pr-8 pl-8 rounded-xl border border-[#b5d7e3] text-xs text-[#07365f] outline-none focus:border-[#1bc3e4] bg-[#f8fafc]"
+            />
+            <Search className="w-4 h-4 text-[#387b94] absolute right-2.5 top-2.5" />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                title="مسح البحث"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
+              title="إعادة ضبط كل عوامل التصفية"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">إعادة ضبط</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -188,10 +258,18 @@ export default function AlertsPage() {
             </div>
             <h3 className="text-base font-bold text-[#07365f]">لا توجد تنبيهات مرصودة</h3>
             <p className="text-xs text-[#387b94] mt-1 max-w-sm">
-              {search || filter !== "ALL"
+              {hasActiveFilters
                 ? "لا توجد نتائج تطابق معايير البحث أو التصفية المحددة."
                 : "جميع أنشطة أجهزتكم محمية ولم يتم رصد أي محتوى ضار حتى الآن."}
             </p>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-[#07365f] bg-[#edf5f8] hover:bg-[#b5d7e3]/40 transition cursor-pointer"
+              >
+                إلغاء التصفية وعرض الكل
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -4,7 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, Mail, User, Phone, ArrowLeft, Loader2, AlertCircle, MessageCircle } from "lucide-react";
+import {
+  Shield,
+  Lock,
+  Mail,
+  User,
+  Phone,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  MessageCircle,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  KeyRound,
+  ShieldCheck,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { extractErrorMessage } from "@/lib/utils";
@@ -16,29 +32,68 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Dynamic Password Policy Criteria
+  const passwordCriteria = {
+    length: password.length >= 8,
+    hasLetter: /[a-zA-Z\u0600-\u06FF]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasMixed:
+      (/[a-z]/.test(password) && /[A-Z]/.test(password)) ||
+      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password),
+  };
+
+  const criteriaCount = [
+    passwordCriteria.length,
+    passwordCriteria.hasLetter,
+    passwordCriteria.hasNumber,
+    passwordCriteria.hasMixed,
+  ].filter(Boolean).length;
+
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Sanitize Saudi phone number format
-    let cleanPhone = whatsappPhone.trim().replace(/[\s\-+]/g, "");
-    if (cleanPhone.startsWith("05")) {
+    // Sanitize phone number (supports any country with international code or 05 local shorthand)
+    let cleanPhone = whatsappPhone.trim().replace(/[\s\-+()]/g, "");
+    if (cleanPhone.startsWith("00")) {
+      cleanPhone = cleanPhone.substring(2);
+    }
+    // Local Saudi shorthand convenience (05XXXXXXXX -> 9665XXXXXXXX)
+    if (cleanPhone.startsWith("05") && cleanPhone.length === 10) {
       cleanPhone = "966" + cleanPhone.substring(1);
-    } else if (cleanPhone.startsWith("5")) {
+    } else if (cleanPhone.startsWith("5") && cleanPhone.length === 9) {
       cleanPhone = "966" + cleanPhone;
     }
 
-    if (!cleanPhone.startsWith("966") || cleanPhone.length !== 12) {
-      setError("يرجى إدخال رقم هاتف سعودي صحيح بصيغة 966XXXXXXXXX أو 05XXXXXXXX");
+    if (!/^\d{7,15}$/.test(cleanPhone)) {
+      setError("يرجى إدخال رقم هاتف صحيح مع رمز الدولة (مثال: +966501234567 أو +201012345678 أو 0501234567)");
       return;
     }
 
+    // Password Policy Validation
     if (password.length < 8) {
-      setError("يجب أن تكون كلمة المرور 8 خانات على الأقل");
+      setError("يجب أن تكون كلمة المرور 8 خانات على الأقل وفقاً لسياسة الأمان");
+      return;
+    }
+
+    if (!passwordCriteria.hasLetter || !passwordCriteria.hasNumber) {
+      setError("يجب أن تحتوي كلمة المرور على أحرف وأرقام معاً");
+      return;
+    }
+
+    // Confirm Password Validation
+    if (password !== confirmPassword) {
+      setError("كلمتا المرور غير متطابقتين، يرجى إعادة إدخالها للتأكيد");
       return;
     }
 
@@ -98,12 +153,16 @@ export default function RegisterPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Full Name */}
           <div>
-            <label className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
+            <label htmlFor="reg_full_name" className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
               الاسم الكامل
             </label>
             <div className="relative">
               <input
+                id="reg_full_name"
+                name="name"
+                autoComplete="name"
                 type="text"
                 required
                 value={fullName}
@@ -115,12 +174,16 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Email */}
           <div>
-            <label className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
+            <label htmlFor="reg_email" className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
               البريد الإلكتروني
             </label>
             <div className="relative">
               <input
+                id="reg_email"
+                name="email"
+                autoComplete="email"
                 type="email"
                 required
                 value={email}
@@ -133,47 +196,212 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* WhatsApp Phone Field — Mandatory Primary Channel */}
+          {/* WhatsApp Phone Field */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-sm font-semibold text-[#07365f] flex items-center gap-1.5">
+              <label htmlFor="reg_phone" className="text-sm font-semibold text-[#07365f] flex items-center gap-1.5">
                 <MessageCircle className="w-4 h-4 text-[#2abe50]" />
                 <span>رقم الواتساب للتنبيهات الفورية (مطلوب)</span>
               </label>
             </div>
             <div className="relative">
               <input
+                id="reg_phone"
+                name="tel"
+                autoComplete="tel"
                 type="tel"
                 required
                 value={whatsappPhone}
                 onChange={(e) => setWhatsappPhone(e.target.value)}
-                placeholder="05XXXXXXXX أو +9665XXXXXXXX"
+                placeholder="+9665XXXXXXXX أو +201XXXXXXXXX أو 05XXXXXXXX"
                 dir="ltr"
                 className="w-full px-4 py-3 pl-11 rounded-xl border border-[#2abe50]/50 focus:border-[#2abe50] focus:ring-2 focus:ring-[#2abe50]/20 outline-none transition text-sm text-[#07365f] bg-[#eaf9ef]/30 placeholder:text-gray-400 font-mono"
               />
               <Phone className="w-5 h-5 text-[#2abe50] absolute left-3.5 top-3.5" />
             </div>
-            <p className="text-xs text-[#159cb7] mt-1.5 flex items-center gap-1">
-              <span>⚡</span>
-              <span>ستصلك تنبيهات المحتوى المسيء والتنمر فورياً عبر رسائل واتساب الرسمية</span>
+            <p className="text-xs text-[#159cb7] mt-1.5 flex items-center gap-1.5">
+              <span>ستصلك تنبيهات المحتوى المسيء والتنمر فورياً عبر رسائل واتساب الرسمية (يدعم كافة الدول)</span>
             </p>
           </div>
 
+          {/* Password Field */}
           <div>
-            <label className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
+            <label htmlFor="reg_password" className="block text-sm font-semibold text-[#07365f] mb-1 text-right">
               كلمة المرور
             </label>
             <div className="relative">
               <input
-                type="password"
+                id="reg_password"
+                name="password"
+                autoComplete="new-password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="•••••••• (8 أحرف على الأقل)"
+                placeholder="••••••••"
                 dir="ltr"
-                className="w-full px-4 py-3 pl-11 rounded-xl border border-[#b5d7e3] focus:border-[#1bc3e4] focus:ring-2 focus:ring-[#1bc3e4]/20 outline-none transition text-sm text-[#07365f] bg-[#edf5f8]/30 placeholder:text-gray-400"
+                className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border border-[#b5d7e3] focus:border-[#1bc3e4] focus:ring-2 focus:ring-[#1bc3e4]/20 outline-none transition text-sm text-[#07365f] bg-[#edf5f8]/30 placeholder:text-gray-400 font-mono"
               />
               <Lock className="w-5 h-5 text-[#387b94] absolute left-3.5 top-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-3.5 text-[#387b94] hover:text-[#07365f] focus:outline-none cursor-pointer"
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Password Policy & Strength Indicator */}
+            {password.length > 0 && (
+              <div className="mt-2.5 p-3 rounded-xl bg-[#edf5f8]/70 border border-[#b5d7e3]/40 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#07365f] flex items-center gap-1">
+                    <KeyRound className="w-3.5 h-3.5 text-[#159cb7]" />
+                    <span>قوة كلمة المرور:</span>
+                  </span>
+                  <span
+                    className={`font-bold text-xs ${
+                      criteriaCount <= 1
+                        ? "text-red-600"
+                        : criteriaCount <= 3
+                        ? "text-amber-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    {criteriaCount <= 1 ? "ضعيفة" : criteriaCount <= 3 ? "متوسطة" : "قوية جداً"}
+                  </span>
+                </div>
+
+                {/* Strength Meter Bar */}
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden flex gap-1">
+                  <div
+                    className={`h-full flex-1 transition-all rounded-full ${
+                      criteriaCount >= 1
+                        ? criteriaCount === 1
+                          ? "bg-red-500"
+                          : criteriaCount <= 3
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                        : "bg-transparent"
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 transition-all rounded-full ${
+                      criteriaCount >= 2
+                        ? criteriaCount <= 3
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                        : "bg-transparent"
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 transition-all rounded-full ${
+                      criteriaCount >= 3
+                        ? criteriaCount === 3
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                        : "bg-transparent"
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 transition-all rounded-full ${
+                      criteriaCount >= 4 ? "bg-emerald-500" : "bg-transparent"
+                    }`}
+                  />
+                </div>
+
+                {/* Policy Checklist */}
+                <ul className="text-[11px] space-y-1 text-[#387b94] pt-1">
+                  <li className="flex items-center gap-1.5">
+                    {passwordCriteria.length ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1 flex-shrink-0" />
+                    )}
+                    <span className={passwordCriteria.length ? "text-emerald-700 font-medium" : ""}>
+                      8 خانات على الأقل
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    {passwordCriteria.hasLetter && passwordCriteria.hasNumber ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1 flex-shrink-0" />
+                    )}
+                    <span
+                      className={
+                        passwordCriteria.hasLetter && passwordCriteria.hasNumber
+                          ? "text-emerald-700 font-medium"
+                          : ""
+                      }
+                    >
+                      تتضمن أحرفاً وأرقاماً معاً
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    {passwordCriteria.hasMixed ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1 flex-shrink-0" />
+                    )}
+                    <span className={passwordCriteria.hasMixed ? "text-emerald-700 font-medium" : ""}>
+                      حرف كبير وصغير أو رمز خاص (مثل @, #, $, !)
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm Password Field */}
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label htmlFor="reg_confirm_password" className="block text-sm font-semibold text-[#07365f] text-right">
+                تأكيد كلمة المرور
+              </label>
+              {passwordsMatch && (
+                <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>كلمتا المرور متطابقتان</span>
+                </span>
+              )}
+              {passwordsMismatch && (
+                <span className="text-[11px] text-red-600 font-medium flex items-center gap-1">
+                  <X className="w-3.5 h-3.5" />
+                  <span>غير متطابقتين</span>
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                id="reg_confirm_password"
+                name="confirm_password"
+                autoComplete="new-password"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                dir="ltr"
+                className={`w-full px-4 py-3 pl-11 pr-11 rounded-xl border outline-none transition text-sm text-[#07365f] bg-[#edf5f8]/30 placeholder:text-gray-400 font-mono ${
+                  passwordsMatch
+                    ? "border-emerald-500 ring-1 ring-emerald-500/20"
+                    : passwordsMismatch
+                    ? "border-red-400 ring-1 ring-red-400/20"
+                    : "border-[#b5d7e3] focus:border-[#1bc3e4] focus:ring-2 focus:ring-[#1bc3e4]/20"
+                }`}
+              />
+              <Lock className="w-5 h-5 text-[#387b94] absolute left-3.5 top-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3.5 top-3.5 text-[#387b94] hover:text-[#07365f] focus:outline-none cursor-pointer"
+                aria-label={showConfirmPassword ? "إخفاء تأكيد كلمة المرور" : "إظهار تأكيد كلمة المرور"}
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 

@@ -241,6 +241,8 @@ async def get_parent_alerts(
     db: AsyncSession,
     parent_id: uuid.UUID,
     category: str | None = None,
+    child_id: uuid.UUID | None = None,
+    search: str | None = None,
     limit: int = 50,
     offset: int = 0,
     is_admin: bool = False,
@@ -249,8 +251,13 @@ async def get_parent_alerts(
     query = select(Alert)
     if not is_admin:
         query = query.where(Alert.parent_id == parent_id)
+    if child_id:
+        query = query.where(Alert.child_id == child_id)
     if category and category.upper() != "ALL":
         query = query.where(Alert.category == category.upper())
+    if search:
+        pat = f"%{search.strip()}%"
+        query = query.where(Alert.content_snippet.ilike(pat) | Alert.context_app.ilike(pat))
 
     query = query.order_by(desc(Alert.created_at)).limit(limit).offset(offset)
     result = await db.execute(query)

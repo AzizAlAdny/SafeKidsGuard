@@ -43,6 +43,7 @@ async def get_parent_activities(
     child_id: uuid.UUID | None = None,
     category: str | None = None,
     verdict: str | None = None,
+    search: str | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     page: int = 1,
@@ -69,6 +70,13 @@ async def get_parent_activities(
         base_query = base_query.where(ActivityEvent.category == category)
     if verdict:
         base_query = base_query.where(ActivityEvent.verdict == verdict)
+    if search:
+        pat = f"%{search.strip()}%"
+        base_query = base_query.where(
+            ActivityEvent.content_snippet.ilike(pat)
+            | ActivityEvent.app_name.ilike(pat)
+            | User.full_name.ilike(pat)
+        )
     if start_date:
         base_query = base_query.where(ActivityEvent.timestamp >= start_date)
     if end_date:

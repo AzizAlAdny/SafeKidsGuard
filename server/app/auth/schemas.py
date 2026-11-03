@@ -17,22 +17,30 @@ class RegisterRequest(BaseModel):
     role: Literal["parent"] = "parent"
     whatsapp_phone: str | None = Field(
         default=None,
-        description="Saudi format: 966XXXXXXXXX (no + prefix, 12 digits total)",
+        description="International E.164 phone format: 7 to 15 digits without +, e.g. 966501234567, 201012345678",
     )
 
     @field_validator("whatsapp_phone")
     @classmethod
     def validate_whatsapp(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        # Strip + if present
-        v = v.lstrip("+").strip()
-        # Validate Saudi format: 966 + 9 digits
-        if not re.fullmatch(r"966\d{9}", v):
+        if v is None or v == "":
+            return None
+        # Clean formatting characters
+        cleaned = re.sub(r"[\s\-+()]", "", v)
+        if cleaned.startswith("00"):
+            cleaned = cleaned[2:]
+        # Convenience for Saudi numbers
+        if cleaned.startswith("05") and len(cleaned) == 10:
+            cleaned = "966" + cleaned[1:]
+        elif cleaned.startswith("5") and len(cleaned) == 9:
+            cleaned = "966" + cleaned
+
+        # E.164 international standard: 7 to 15 digits
+        if not re.fullmatch(r"\d{7,15}", cleaned):
             raise ValueError(
-                "WhatsApp phone must be in Saudi format: 966XXXXXXXXX (12 digits, no +)"
+                "WhatsApp phone must be a valid international number with country code (e.g. 966501234567, 201012345678, 971501234567)"
             )
-        return v
+        return cleaned
 
 
 class LoginRequest(BaseModel):

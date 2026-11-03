@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Activity,
   Shield,
@@ -14,8 +14,11 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { normalizeArabicText } from "@/lib/utils";
 
 interface ActivityItem {
   id: string;
@@ -54,6 +57,7 @@ export default function ActivityPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedVerdict, setSelectedVerdict] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
 
   useEffect(() => {
     async function loadChildren() {
@@ -74,6 +78,7 @@ export default function ActivityPage() {
       if (selectedChildId) params.child_id = selectedChildId;
       if (selectedCategory) params.category = selectedCategory;
       if (selectedVerdict) params.verdict = selectedVerdict;
+      if (search.trim()) params.search = search.trim();
 
       const res = await api.get("/activity", { params });
       setActivities(res.data?.items || []);
@@ -81,7 +86,7 @@ export default function ActivityPage() {
     } catch (err) {
       console.error("Failed to fetch activity log", err);
       // Fallback sample data for demonstration if DB empty
-      setActivities([
+      const sample = [
         {
           id: "act-1",
           child_id: "c-1",
@@ -90,7 +95,7 @@ export default function ActivityPage() {
           content_snippet: "أنت شخص فاشل وغبي وسوف أقوم بضربك غداً بعد الدوام",
           category: "CYBERBULLYING",
           confidence: 0.94,
-          verdict: "BLOCKED",
+          verdict: "BLOCKED" as const,
           timestamp: new Date().toISOString(),
         },
         {
@@ -101,7 +106,7 @@ export default function ActivityPage() {
           content_snippet: "شرح درس مادة العلوم للصف الخامس الابتدائي عن المجموعة الشمسية",
           category: "SAFE",
           confidence: 0.99,
-          verdict: "ALLOWED",
+          verdict: "ALLOWED" as const,
           timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
         },
         {
@@ -112,19 +117,37 @@ export default function ActivityPage() {
           content_snippet: "سأقوم بقتلك وسفك دمائك بالسكين أمام الجميع",
           category: "VIOLENCE",
           confidence: 0.97,
-          verdict: "BLOCKED",
+          verdict: "BLOCKED" as const,
           timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
         },
-      ]);
-      setTotal(3);
+      ];
+      setActivities(sample);
+      setTotal(sample.length);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchActivities();
-  }, [page, selectedChildId, selectedCategory, selectedVerdict]);
+    const timer = setTimeout(() => {
+      fetchActivities();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [page, selectedChildId, selectedCategory, selectedVerdict, search]);
+
+  const resetFilters = () => {
+    setSelectedChildId("");
+    setSelectedCategory("");
+    setSelectedVerdict("");
+    setSearch("");
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    Boolean(selectedChildId) ||
+    Boolean(selectedCategory) ||
+    Boolean(selectedVerdict) ||
+    Boolean(search.trim());
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -150,62 +173,104 @@ export default function ActivityPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-white border border-[#b5d7e3]/40 shadow-sm flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-[#07365f]">
-          <Filter className="w-4 h-4 text-[#159cb7]" />
-          <span>تصفية:</span>
+      <div className="p-4 rounded-2xl bg-white border border-[#b5d7e3]/40 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#07365f]">
+            <Filter className="w-4 h-4 text-[#159cb7]" />
+            <span>تصفية:</span>
+          </div>
+
+          {/* Child Filter */}
+          <select
+            value={selectedChildId}
+            onChange={(e) => {
+              setSelectedChildId(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
+          >
+            <option value="">جميع الأطفال</option>
+            {children.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.full_name}
+              </option>
+            ))}
+          </select>
+
+          {/* Category Filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
+          >
+            <option value="">جميع التصنيفات</option>
+            <option value="SAFE">محتوى آمن</option>
+            <option value="CYBERBULLYING">تنمر إلكتروني</option>
+            <option value="SEXUAL">محتوى غير لائق</option>
+            <option value="VIOLENCE">عنف وتهديد</option>
+            <option value="HATE_SPEECH">خطاب كراهية</option>
+          </select>
+
+          {/* Verdict Filter */}
+          <select
+            value={selectedVerdict}
+            onChange={(e) => {
+              setSelectedVerdict(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
+          >
+            <option value="">جميع القرارات</option>
+            <option value="BLOCKED">المحظورة فقط (Threats)</option>
+            <option value="ALLOWED">المسموحة (Safe)</option>
+          </select>
         </div>
 
-        {/* Child Filter */}
-        <select
-          value={selectedChildId}
-          onChange={(e) => {
-            setSelectedChildId(e.target.value);
-            setPage(1);
-          }}
-          className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
-        >
-          <option value="">جميع الأطفال</option>
-          {children.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.full_name}
-            </option>
-          ))}
-        </select>
+        {/* Search input & Active Filters Reset */}
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="بحث في النص، التطبيق..."
+              className="w-full px-3 py-2 pr-8 pl-8 rounded-xl border border-[#b5d7e3] text-xs text-[#07365f] outline-none focus:border-[#1bc3e4] bg-[#f8fafc]"
+            />
+            <Search className="w-4 h-4 text-[#387b94] absolute right-2.5 top-2.5" />
+            {search && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                title="مسح البحث"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-        {/* Category Filter */}
-        <select
-          value={selectedCategory}
-          onChange={(e) => {
-            setSelectedCategory(e.target.value);
-            setPage(1);
-          }}
-          className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
-        >
-          <option value="">جميع التصنيفات</option>
-          <option value="SAFE">محتوى آمن</option>
-          <option value="CYBERBULLYING">تنمر إلكتروني</option>
-          <option value="SEXUAL">محتوى غير لائق</option>
-          <option value="VIOLENCE">عنف وتهديد</option>
-          <option value="HATE_SPEECH">خطاب كراهية</option>
-        </select>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
+              title="إعادة ضبط كل الفلاتر"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">إعادة ضبط</span>
+            </button>
+          )}
 
-        {/* Verdict Filter */}
-        <select
-          value={selectedVerdict}
-          onChange={(e) => {
-            setSelectedVerdict(e.target.value);
-            setPage(1);
-          }}
-          className="px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-semibold text-[#07365f] bg-[#edf5f8]/40 outline-none cursor-pointer"
-        >
-          <option value="">جميع القرارات</option>
-          <option value="BLOCKED">المحظورة فقط (Threats)</option>
-          <option value="ALLOWED">المسموحة (Safe)</option>
-        </select>
-
-        <div className="mr-auto text-xs text-[#387b94] font-medium">
-          إجمالي الأنشطة المسجلة: <strong className="font-mono text-[#07365f]">{total}</strong>
+          <div className="text-xs text-[#387b94] font-medium whitespace-nowrap mr-2">
+            إجمالي: <strong className="font-mono text-[#07365f]">{total}</strong>
+          </div>
         </div>
       </div>
 
@@ -220,7 +285,15 @@ export default function ActivityPage() {
           <div className="p-16 text-center text-[#387b94]">
             <CheckCircle className="w-12 h-12 text-[#2abe50] mx-auto mb-3 opacity-60" />
             <p className="font-bold text-sm text-[#07365f]">لا توجد أنشطة مسجلة بهذه المعايير</p>
-            <p className="text-xs mt-1">تصفح الأطفال آمن ومتوافق مع السياسات المحددة.</p>
+            <p className="text-xs mt-1">تصفح الأطفال آمن ومتوافق مع السياسات المحددة أو المعايير المختارة.</p>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-[#07365f] bg-[#edf5f8] hover:bg-[#b5d7e3]/40 transition cursor-pointer"
+              >
+                إلغاء التصفية وعرض الكل
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
