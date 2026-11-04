@@ -13,7 +13,6 @@ import {
   LogOut,
   Menu,
   X,
-  ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -23,7 +22,6 @@ const adminNavItems = [
   { href: "/admin/models", label: "نماذج الذكاء الاصطناعي", icon: BrainCircuit },
   { href: "/admin/flagged", label: "مراجعة المحتوى المبلّغ", icon: Flag },
   { href: "/admin/settings", label: "إعدادات الأمان والنظام", icon: Settings },
-  { href: "/dashboard", label: "لوحة تحكم ولي الأمر", icon: ShieldCheck },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
