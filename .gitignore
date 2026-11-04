@@ -26,6 +26,8 @@ build/
 
 # Android / Gradle
 .gradle/
+.kotlin/
+gradle-daemon-jvm.properties
 build/
 app/build/
 *.apk

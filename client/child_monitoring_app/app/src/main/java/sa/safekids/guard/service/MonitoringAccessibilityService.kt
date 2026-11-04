@@ -39,7 +39,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "SafeKidsGuard_Monitor"
         private const val DEBOUNCE_DELAY_MS = 1500L // 1.5-second debouncing window
-        private const val POLICY_SYNC_INTERVAL_MS = 300_000L // 5 minutes
+        private const val POLICY_SYNC_INTERVAL_MS = 10_000L // 10-second live policy sync
         private const val LOCAL_LOG_COOLDOWN_MS = 15_000L // 15-second cooldown for local block activity logs
 
         // Packages to ignore to prevent loops and unnecessary processing (Launchers, System UI, Keyboards, Settings)
@@ -107,11 +107,44 @@ class MonitoringAccessibilityService : AccessibilityService() {
             if (resp.isSuccessful) {
                 resp.body()?.let { policy ->
                     sessionManager.cachePolicy(policy)
-                    Log.i(TAG, "Synchronized child policy from server.")
+                    Log.d(TAG, "Synchronized child policy from server.")
+                    mainHandler.post {
+                        enforceCurrentForegroundWindow()
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Policy sync skipped (offline): ${e.message}")
+        }
+    }
+
+    /**
+     * Immediately checks the currently active foreground window after a policy sync
+     * so newly blocked apps or blacklisted URLs are enforced even if the child is already inside them.
+     */
+    private fun enforceCurrentForegroundWindow() {
+        val rootNode = rootInActiveWindow ?: return
+        val pkg = rootNode.packageName?.toString() ?: return
+        if (pkg.isBlank() || IGNORED_PACKAGES.contains(pkg)) return
+
+        if (PolicyEvaluator.isAppBlocked(pkg, sessionManager.blockedApps)) {
+            val reason = "هذا التطبيق محظور بواسطة إعدادات العائلة ($pkg)"
+            logLocalViolationToServer("BLOCKED_APP", pkg, null, reason)
+            handleHarmfulContentDetected("BLOCKED_APP", pkg, reason)
+            return
+        }
+
+        val sb = StringBuilder()
+        extractVisibleText(rootNode, sb)
+        val combinedText = PolicyEvaluator.boundTextPayload(sb.toString())
+        val matchedDomain = PolicyEvaluator.findMatchingBlacklistedDomain(
+            text = combinedText,
+            blacklistedUrls = sessionManager.blacklistedUrls
+        )
+        if (matchedDomain != null) {
+            val reason = "الرابط محظور بواسطة إعدادات الحماية: $matchedDomain"
+            logLocalViolationToServer("BLACKLISTED_URL", pkg, matchedDomain, reason)
+            handleHarmfulContentDetected("BLACKLISTED_URL", pkg, reason)
         }
     }
 
@@ -120,26 +153,27 @@ class MonitoringAccessibilityService : AccessibilityService() {
         if (!sessionManager.isPaired || sessionManager.childId.isBlank()) return
 
         val packageName = event.packageName?.toString() ?: ""
-        if (IGNORED_PACKAGES.contains(packageName)) return
+        if (packageName.isBlank() || IGNORED_PACKAGES.contains(packageName)) return
 
-        // Immediate local policy checks on window/app changes (<50ms response)
+        // Immediate local blocked-app check on ANY event in the foreground app (<50ms response)
+        if (PolicyEvaluator.isAppBlocked(packageName, sessionManager.blockedApps)) {
+            val reason = "هذا التطبيق محظور بواسطة إعدادات العائلة ($packageName)"
+            logLocalViolationToServer(
+                category = "BLOCKED_APP",
+                packageName = packageName,
+                url = null,
+                snippet = reason
+            )
+            handleHarmfulContentDetected(
+                category = "BLOCKED_APP",
+                packageName = packageName,
+                reason = reason
+            )
+            return
+        }
+
+        // Bedtime and screen-time checks on window state changes
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (sessionManager.blockedApps.contains(packageName)) {
-                val reason = "هذا التطبيق محظور بواسطة إعدادات العائلة ($packageName)"
-                logLocalViolationToServer(
-                    category = "BLOCKED_APP",
-                    packageName = packageName,
-                    url = null,
-                    snippet = reason
-                )
-                handleHarmfulContentDetected(
-                    category = "BLOCKED_APP",
-                    packageName = packageName,
-                    reason = reason
-                )
-                return
-            }
-
             if (isCurrentlyInBedtimeWindow()) {
                 val reason = "وقت النوم نشط الآن (${sessionManager.bedtimeStart} - ${sessionManager.bedtimeEnd})"
                 logLocalViolationToServer(

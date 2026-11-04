@@ -99,21 +99,42 @@ async def classify_and_handle(
                 if is_blocked:
                     block_reason = f"AI Threat Detected: {category} ({confidence * 100:.0f}%)"
 
-            # Check blocked apps
-            if data.context_app and data.context_app in (policy.blocked_apps or []):
-                is_blocked = True
-                block_reason = f"Blocked Application: {data.context_app}"
-                if category == "SAFE":
-                    category = "BLOCKED_APP"
-                    confidence = 1.0
+            # Check blocked apps (exact match, known aliases, or package keyword)
+            if data.context_app:
+                app_lower = data.context_app.strip().lower()
+                blocked_list = [b.strip().lower() for b in (policy.blocked_apps or []) if b.strip()]
+                is_app_blocked = app_lower in blocked_list
+                if not is_app_blocked:
+                    # Check common regional package aliases (e.g., TikTok musically vs trill)
+                    if "com.zhiliaoapp.musically" in blocked_list and "com.ss.android.ugc.trill" in app_lower:
+                        is_app_blocked = True
+                    elif any(len(b) >= 3 and b in app_lower for b in blocked_list):
+                        is_app_blocked = True
 
-            # Check custom blacklisted URLs / domains
+                if is_app_blocked:
+                    is_blocked = True
+                    block_reason = f"هذا التطبيق محظور بواسطة إعدادات العائلة ({data.context_app})"
+                    if category == "SAFE":
+                        category = "BLOCKED_APP"
+                        confidence = 1.0
+
+            # Check custom blacklisted URLs / domains (normalizing http://, https://, www., m., and trailing paths)
             text_lower = data.text.lower()
             for blacklisted_url in (policy.custom_blacklist_urls or []):
-                clean_domain = blacklisted_url.strip().lower()
+                clean_domain = (
+                    blacklisted_url.strip()
+                    .lower()
+                    .removeprefix("https://")
+                    .removeprefix("http://")
+                    .removeprefix("www.")
+                    .removeprefix("m.")
+                    .split("/")[0]
+                    .split("?")[0]
+                    .strip()
+                )
                 if clean_domain and clean_domain in text_lower:
                     is_blocked = True
-                    block_reason = f"Blacklisted URL: {blacklisted_url}"
+                    block_reason = f"الرابط محظور بواسطة إعدادات الحماية: {clean_domain}"
                     if category == "SAFE":
                         category = "BLACKLISTED_URL"
                         confidence = 1.0
@@ -179,18 +200,20 @@ async def classify_and_handle(
 
             if parent_row:
                 _, prefs = parent_row
-                if prefs and prefs.web_push_enabled and prefs.web_push_token:
+                if prefs and (prefs.web_push_enabled or prefs.web_push_token):
+                    token = prefs.web_push_token or "browser_web_push_active"
+                    alert.web_push_sent = True
                     if background_tasks is not None:
                         background_tasks.add_task(
                             _dispatch_notifications_task,
-                            prefs.web_push_token,
+                            token,
                             category,
                             child_name,
                             confidence,
                         )
                     else:
                         wp_sent = await _dispatch_notifications_task(
-                            prefs.web_push_token,
+                            token,
                             category,
                             child_name,
                             confidence,

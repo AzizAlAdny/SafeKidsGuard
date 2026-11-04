@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import ActivityEvent
 from app.auth.models import Family, FamilyMember, User
+from app.content_filter.models import Alert
 
 
 async def log_activity(
@@ -20,7 +21,7 @@ async def log_activity(
     app_name: str | None = None,
     url: str | None = None,
 ) -> ActivityEvent:
-    """Save an activity event to the database (privacy: snippet truncated to 200 chars)."""
+    """Save an activity event to the database and create a parent Alert if the event was BLOCKED."""
     truncated_snippet = content_snippet[:200] if content_snippet else ""
     event = ActivityEvent(
         child_id=child_id,
@@ -32,6 +33,31 @@ async def log_activity(
         verdict=verdict,
     )
     db.add(event)
+
+    # Also persist an Alert record when a local policy violation (BLOCKED_APP, BLACKLISTED_URL, etc.) blocks access
+    if verdict == "BLOCKED":
+        fm_stmt = (
+            select(Family.parent_id)
+            .join(FamilyMember, FamilyMember.family_id == Family.id)
+            .where(FamilyMember.child_id == child_id)
+        )
+        parent_res = await db.execute(fm_stmt)
+        parent_id = parent_res.scalar_one_or_none()
+        if parent_id:
+            alert = Alert(
+                child_id=child_id,
+                parent_id=parent_id,
+                content_snippet=truncated_snippet or f"تم الحظر التلقائي ({category})",
+                category=category,
+                confidence=confidence,
+                verdict="BLOCKED",
+                context_app=app_name or url,
+                whatsapp_sent=False,
+                web_push_sent=True,
+                review_status="PENDING",
+            )
+            db.add(alert)
+
     await db.commit()
     await db.refresh(event)
     return event

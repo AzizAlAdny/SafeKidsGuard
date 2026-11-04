@@ -45,9 +45,15 @@ interface Policy {
 
 const POPULAR_APPS = [
   { name: "تيك توك (TikTok)", pkg: "com.zhiliaoapp.musically" },
+  { name: "يوتيوب (YouTube)", pkg: "com.google.android.youtube" },
   { name: "إنستغرام (Instagram)", pkg: "com.instagram.android" },
   { name: "سناب شات (Snapchat)", pkg: "com.snapchat.android" },
+  { name: "واتساب (WhatsApp)", pkg: "com.whatsapp" },
+  { name: "تيليجرام (Telegram)", pkg: "org.telegram.messenger" },
   { name: "روبلوكس (Roblox)", pkg: "com.roblox.client" },
+  { name: "فيسبوك (Facebook)", pkg: "com.facebook.katana" },
+  { name: "إكس / تويتر (X)", pkg: "com.twitter.android" },
+  { name: "ديسكورد (Discord)", pkg: "com.discord" },
   { name: "يوتيوب كيدز (YouTube Kids)", pkg: "com.google.android.apps.youtube.kids" },
 ];
 
@@ -158,17 +164,18 @@ export default function PoliciesPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!policy || !selectedChildId) return;
-
+  const persistPolicyUpdate = async (updatedPolicy: Policy, customSuccessText?: string) => {
+    setPolicy(updatedPolicy);
+    if (!selectedChildId) return;
     setSaving(true);
     setMessage(null);
-
     try {
-      const res = await api.put(`/policies/${selectedChildId}`, policy);
+      const res = await api.put(`/policies/${selectedChildId}`, updatedPolicy);
       setPolicy(res.data);
-      setMessage({ type: "success", text: "تم تحديث سياسة الحماية وتطبيقها على جهاز الطفل بنجاح!" });
+      setMessage({
+        type: "success",
+        text: customSuccessText || "تم تحديث سياسة الحماية وتطبيقها على جهاز الطفل فوراً!",
+      });
     } catch (err: any) {
       setMessage({
         type: "error",
@@ -179,35 +186,76 @@ export default function PoliciesPage() {
     }
   };
 
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!policy || !selectedChildId) return;
+    await persistPolicyUpdate(policy, "تم تحديث سياسة الحماية وتطبيقها على جهاز الطفل بنجاح!");
+  };
+
   const addUrl = () => {
     if (!newUrl.trim() || !policy) return;
-    const clean = newUrl.trim().toLowerCase().replace(/^https?:\/\//, "");
+    const clean = newUrl
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^(www\.|m\.)/, "")
+      .split("/")[0]
+      .split("?")[0]
+      .trim();
+
+    if (!clean) return;
+
     if (!policy.custom_blacklist_urls.includes(clean)) {
-      setPolicy({
+      const updated = {
         ...policy,
         custom_blacklist_urls: [...policy.custom_blacklist_urls, clean],
-      });
+      };
+      setNewUrl("");
+      persistPolicyUpdate(updated, `تمت إضافة الموقع (${clean}) إلى القائمة السوداء وتفعيل الحظر فوراً!`);
+    } else {
+      setNewUrl("");
     }
-    setNewUrl("");
   };
 
   const removeUrl = (url: string) => {
     if (!policy) return;
-    setPolicy({
+    const updated = {
       ...policy,
       custom_blacklist_urls: policy.custom_blacklist_urls.filter((u) => u !== url),
-    });
+    };
+    persistPolicyUpdate(updated, `تمت إزالة الموقع (${url}) من القائمة السوداء بنجاح.`);
   };
 
   const toggleBlockedApp = (pkg: string) => {
     if (!policy) return;
     const exists = policy.blocked_apps.includes(pkg);
-    setPolicy({
+    const updated = {
       ...policy,
       blocked_apps: exists
         ? policy.blocked_apps.filter((p) => p !== pkg)
         : [...policy.blocked_apps, pkg],
-    });
+    };
+    persistPolicyUpdate(
+      updated,
+      exists
+        ? `تم السماح بالتطبيق (${pkg}) وتحديث سياسة جهاز الطفل.`
+        : `تم حظر التطبيق (${pkg}) وتطبيق الحظر الفوري على جهاز الطفل!`
+    );
+  };
+
+  const addCustomApp = () => {
+    if (!newApp.trim() || !policy) return;
+    const cleanPkg = newApp.trim().toLowerCase();
+    if (!policy.blocked_apps.includes(cleanPkg)) {
+      const updated = {
+        ...policy,
+        blocked_apps: [...policy.blocked_apps, cleanPkg],
+      };
+      setNewApp("");
+      persistPolicyUpdate(updated, `تم حظر التطبيق (${cleanPkg}) وتفعيل الحماية فوراً!`);
+    } else {
+      setNewApp("");
+    }
   };
 
   return (
@@ -477,12 +525,37 @@ export default function PoliciesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Apps Restrictions */}
             <div className="p-6 rounded-2xl bg-white border border-[#b5d7e3]/40 shadow-sm space-y-4">
-              <h2 className="text-base font-bold text-[#07365f] flex items-center gap-2">
-                <Smartphone className="w-5 h-5 text-[#0b518e]" />
-                <span>حظر التطبيقات</span>
-              </h2>
+              <div>
+                <h2 className="text-base font-bold text-[#07365f] flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-[#0b518e]" />
+                  <span>حظر التطبيقات</span>
+                </h2>
+                <p className="text-[11px] text-[#387b94] mt-0.5">
+                  انقر على أي تطبيق لحظره أو السماح به فوراً، أو أضف اسم الحزمة (Package) لتطبيق مخصص.
+                </p>
+              </div>
 
-              <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="مثال: com.pubg.imobile أو youtube"
+                  dir="ltr"
+                  value={newApp}
+                  onChange={(e) => setNewApp(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomApp())}
+                  className="flex-1 px-3 py-2 rounded-xl border border-[#b5d7e3] text-xs font-mono outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomApp}
+                  className="px-3 py-2 rounded-xl bg-[#0b518e] text-white hover:opacity-90 transition text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>حظر تطبيق</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {POPULAR_APPS.map((app) => {
                   const isBlocked = policy.blocked_apps.includes(app.pkg);
                   return (
@@ -495,9 +568,14 @@ export default function PoliciesPage() {
                           : "bg-white border-gray-100 hover:bg-gray-50 text-[#07365f]"
                       }`}
                     >
-                      <span className="font-semibold">{app.name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{app.name}</span>
+                        <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
+                          {app.pkg}
+                        </span>
+                      </div>
                       <span
-                        className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                        className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${
                           isBlocked ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"
                         }`}
                       >
@@ -506,6 +584,27 @@ export default function PoliciesPage() {
                     </div>
                   );
                 })}
+
+                {/* Custom Blocked Apps not in POPULAR_APPS */}
+                {policy.blocked_apps
+                  .filter((pkg) => !POPULAR_APPS.some((p) => p.pkg === pkg))
+                  .map((customPkg) => (
+                    <div
+                      key={customPkg}
+                      onClick={() => toggleBlockedApp(customPkg)}
+                      className="flex items-center justify-between p-3 rounded-xl border text-xs cursor-pointer transition bg-red-50/60 border-red-200 text-red-900"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-semibold">تطبيق مخصص محظور</span>
+                        <span className="text-[10px] text-red-700 font-mono" dir="ltr">
+                          {customPkg}
+                        </span>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full font-bold text-[10px] bg-red-100 text-red-700">
+                        محظور (انقر للإلغاء)
+                      </span>
+                    </div>
+                  ))}
               </div>
             </div>
 

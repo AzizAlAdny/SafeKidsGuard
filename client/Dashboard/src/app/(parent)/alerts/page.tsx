@@ -40,6 +40,10 @@ const CATEGORY_MAP: Record<string, { label: string; color: string; bgColor: stri
   VIOLENCE: { label: "عنف وتحريض", color: "#f0a83d", bgColor: "#fef8ee" },
   SEXUAL: { label: "محتوى غير لائق", color: "#e33a0a", bgColor: "#fdece7" },
   HATE_SPEECH: { label: "خطاب كراهية", color: "#0b518e", bgColor: "#e7f3fd" },
+  BLOCKED_APP: { label: "تطبيق محظور", color: "#be123c", bgColor: "#ffe4e6" },
+  BLACKLISTED_URL: { label: "موقع محظور", color: "#b45309", bgColor: "#fef3c7" },
+  BEDTIME: { label: "وقت النوم", color: "#4338ca", bgColor: "#e0e7ff" },
+  SCREEN_TIME: { label: "تجاوز وقت الشاشة", color: "#0f766e", bgColor: "#ccfbf1" },
   SAFE: { label: "محتوى آمن", color: "#2abe50", bgColor: "#eaf9ef" },
 };
 
@@ -104,6 +108,14 @@ export default function AlertsPage() {
 
   useEffect(() => {
     fetchAlertsData();
+  }, [filter, selectedChildId]);
+
+  useEffect(() => {
+    const handleLiveUpdate = () => {
+      fetchAlertsData();
+    };
+    window.addEventListener("skg-alerts-updated", handleLiveUpdate);
+    return () => window.removeEventListener("skg-alerts-updated", handleLiveUpdate);
   }, [filter, selectedChildId]);
 
   const resetFilters = () => {

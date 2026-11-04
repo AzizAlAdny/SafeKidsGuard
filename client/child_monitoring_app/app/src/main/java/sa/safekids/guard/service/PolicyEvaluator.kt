@@ -61,6 +61,22 @@ object PolicyEvaluator {
     }
 
     /**
+     * Normalizes a URL or domain string by stripping http(s)://, www., m., and path/query suffixes.
+     */
+    fun normalizeDomain(rawUrl: String): String {
+        return rawUrl
+            .trim()
+            .lowercase()
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("www.")
+            .removePrefix("m.")
+            .substringBefore("/")
+            .substringBefore("?")
+            .trim()
+    }
+
+    /**
      * Checks whether the given screen text contains any blacklisted domain/URL.
      * Returns the matched domain entry if found, or null otherwise.
      */
@@ -68,12 +84,42 @@ object PolicyEvaluator {
         if (text.isBlank() || blacklistedUrls.isEmpty()) return null
         val lowerText = text.lowercase()
         for (domain in blacklistedUrls) {
-            val cleanDomain = domain.trim().lowercase()
+            val cleanDomain = normalizeDomain(domain)
             if (cleanDomain.isNotEmpty() && lowerText.contains(cleanDomain)) {
-                return domain
+                return cleanDomain
             }
         }
         return null
+    }
+
+    /**
+     * Checks whether the foreground packageName matches any entry in blockedApps,
+     * including regional package variants (e.g. TikTok musically/trill) and custom keywords.
+     */
+    fun isAppBlocked(packageName: String, blockedApps: Set<String>): Boolean {
+        if (packageName.isBlank() || blockedApps.isEmpty()) return false
+        val pkgLower = packageName.trim().lowercase()
+        val blockedLower = blockedApps.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+
+        if (blockedLower.contains(pkgLower)) return true
+
+        // Regional / Lite package aliases
+        if (blockedLower.contains("com.zhiliaoapp.musically") &&
+            (pkgLower == "com.ss.android.ugc.trill" || pkgLower == "com.zhiliaoapp.musically.go")
+        ) {
+            return true
+        }
+        if (blockedLower.contains("com.facebook.katana") && pkgLower == "com.facebook.lite") {
+            return true
+        }
+        if (blockedLower.contains("com.instagram.android") && pkgLower == "com.instagram.lite") {
+            return true
+        }
+
+        // Custom keyword or partial package match (minimum 4 chars to avoid accidental matches)
+        return blockedLower.any { entry ->
+            entry.length >= 4 && !entry.contains(".") && pkgLower.contains(entry)
+        }
     }
 
     /**

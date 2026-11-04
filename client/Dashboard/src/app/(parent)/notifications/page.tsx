@@ -19,32 +19,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { api } from "@/lib/api";
 import { extractErrorMessage } from "@/lib/utils";
-
-function playNotificationSound() {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = "sine";
-    // Gentle two-tone chime (F5 -> A5)
-    osc.frequency.setValueAtTime(698.46, ctx.currentTime);
-    osc.frequency.setValueAtTime(880.0, ctx.currentTime + 0.12);
-
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.48);
-  } catch {
-    // Ignore audio restrictions
-  }
-}
+import { triggerBrowserNotification } from "@/lib/browser-notifications";
 
 export default function NotificationsPage() {
   const { user } = useAuthStore();
@@ -59,11 +34,14 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
+    let currentPerm: NotificationPermission | "unsupported" = "default";
     // Check browser notification permission
     if (typeof window !== "undefined") {
       if ("Notification" in window) {
-        setBrowserPermission(Notification.permission);
+        currentPerm = Notification.permission;
+        setBrowserPermission(currentPerm);
       } else {
+        currentPerm = "unsupported";
         setBrowserPermission("unsupported");
       }
 
@@ -78,8 +56,32 @@ export default function NotificationsPage() {
       try {
         const res = await api.get("/notifications/preferences");
         if (res.data) {
-          setPhoneNumber(res.data.phone_number || res.data.whatsapp_phone || "");
-          setWebPushEnabled(res.data.web_push_enabled ?? true);
+          const loadedPhone = res.data.phone_number || res.data.whatsapp_phone || "";
+          setPhoneNumber(loadedPhone);
+
+          // If browser permission is already granted and web_push_token was never initialized,
+          // automatically activate web_push_enabled so "إذن إشعارات المتصفح مفعّل" works out-of-the-box.
+          const hasSavedToken = Boolean(res.data.web_push_token);
+          const effectiveWebPush =
+            !hasSavedToken && currentPerm === "granted"
+              ? true
+              : (res.data.web_push_enabled ?? true);
+
+          setWebPushEnabled(effectiveWebPush);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("skg_web_push_enabled", String(effectiveWebPush));
+          }
+
+          if (!hasSavedToken && currentPerm === "granted") {
+            api
+              .put("/notifications/preferences", {
+                phone_number: loadedPhone || null,
+                web_push_enabled: true,
+                notifications_enabled: true,
+                web_push_token: "browser_web_push_active",
+              })
+              .catch(() => {});
+          }
         }
       } catch (err: any) {
         console.error("Failed to load preferences:", err);
@@ -97,11 +99,27 @@ export default function NotificationsPage() {
         const perm = await Notification.requestPermission();
         setBrowserPermission(perm);
         if (perm === "granted") {
-          setMessage({ type: "success", text: "تم تفعيل إذن إشعارات المتصفح بنجاح!" });
+          setWebPushEnabled(true);
+          localStorage.setItem("skg_web_push_enabled", "true");
+          await api
+            .put("/notifications/preferences", {
+              phone_number: phoneNumber.trim() || null,
+              web_push_enabled: true,
+              notifications_enabled: true,
+              web_push_token: "browser_web_push_active",
+            })
+            .catch(() => {});
+
+          await triggerBrowserNotification({
+            title: "✅ حارس الأطفال الآمن — تم تفعيل الإشعارات",
+            body: "إذن إشعارات المتصفح مفعّل الآن! ستصلك تنبيهات الحماية الفورية هنا مباشرة.",
+            playSound: soundEnabled,
+          });
+          setMessage({ type: "success", text: "تم تفعيل إذن إشعارات المتصفح وإرسال إشعار تأكيدي بنجاح!" });
         } else if (perm === "denied") {
           setMessage({
             type: "error",
-            text: "تم حظر إذن الإشعارات من إعدادات المتصفح. يمكنك تفعيله من أيقونة القفل في شريط العنوان.",
+            text: "تم حظر إذن الإشعارات من إعدادات المتصفح. يمكنك تفعيله من أيقونة القفل/الإعدادات بجانب الرابط في شريط العنوان.",
           });
         }
       } catch (e) {
@@ -120,10 +138,12 @@ export default function NotificationsPage() {
         phone_number: phoneNumber.trim() || null,
         web_push_enabled: webPushEnabled,
         notifications_enabled: webPushEnabled,
+        web_push_token: webPushEnabled ? "browser_web_push_active" : "",
       });
 
-      // Persist sound preference locally
+      // Persist preferences locally for real-time alert listener
       localStorage.setItem("skg_sound_alerts_enabled", String(soundEnabled));
+      localStorage.setItem("skg_web_push_enabled", String(webPushEnabled));
 
       if (res.data) {
         setPhoneNumber(res.data.phone_number || res.data.whatsapp_phone || "");
@@ -140,40 +160,36 @@ export default function NotificationsPage() {
     setTestingPush(true);
     setMessage(null);
 
-    // Play chime if enabled
-    if (soundEnabled) {
-      playNotificationSound();
-    }
-
     try {
+      if (!webPushEnabled) {
+        setWebPushEnabled(true);
+        localStorage.setItem("skg_web_push_enabled", "true");
+      }
+
       const res = await api.post("/notifications/test-notification", {
         phone_number: phoneNumber.trim() || undefined,
+        token: "browser_web_push_active",
       });
+
+      const nativeDispatched = await triggerBrowserNotification({
+        title: "⚠️ Safe Kids Guard — تنبيه أمان تجريبي",
+        body: "نظام الإشعارات الفورية بالمتصفح يعمل بكفاءة وأمان لحماية أجهزتكم.",
+        category: "CYBERBULLYING",
+        childName: "جهاز الطفل (تجريبي)",
+        confidence: 95,
+        playSound: soundEnabled,
+      });
+
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setBrowserPermission(Notification.permission);
+      }
 
       setMessage({
         type: "success",
-        text: res.data?.message || "تم إرسال إشعار التنبيه التجريبي بنجاح عبر نظام الإشعارات الفورية",
+        text: nativeDispatched
+          ? "تم إرسال إشعار المتصفح الفوري بنجاح! (تحقق من الإشعار المنبثق أعلى الشاشة وإشعارات النظام)"
+          : res.data?.message || "تم عرض التنبيه الفوري بنجاح داخل لوحة التحكم!",
       });
-
-      // Also trigger native desktop notification if permitted
-      if (typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission === "granted") {
-          new Notification("⚠️ Safe Kids Guard — تنبيه أمان تجريبي", {
-            body: "نظام الإشعارات الفورية يعمل بكفاءة وأمان لحماية أجهزتكم.",
-            icon: "/logo.jpeg",
-          });
-        } else if (Notification.permission !== "denied") {
-          Notification.requestPermission().then((permission) => {
-            setBrowserPermission(permission);
-            if (permission === "granted") {
-              new Notification("⚠️ Safe Kids Guard — تنبيه أمان تجريبي", {
-                body: "نظام الإشعارات الفورية يعمل بكفاءة وأمان لحماية أجهزتكم.",
-                icon: "/logo.jpeg",
-              });
-            }
-          });
-        }
-      }
     } catch (err: any) {
       setMessage({ type: "error", text: extractErrorMessage(err, "فشل إرسال إشعار التنبيه التجريبي") });
     } finally {
@@ -220,16 +236,32 @@ export default function NotificationsPage() {
         {/* Browser Permission Badge / Button */}
         <div>
           {browserPermission === "granted" && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+            <button
+              type="button"
+              onClick={handleTestNotification}
+              disabled={testingPush}
+              title="انقر لإرسال إشعار متصفح تجريبي الآن"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 active:scale-[0.98] transition cursor-pointer shadow-sm"
+            >
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>إذن إشعارات المتصفح مفعّل</span>
-            </span>
+              <span>إذن إشعارات المتصفح مفعّل (انقر للتجربة)</span>
+            </button>
           )}
           {browserPermission === "denied" && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm" title="يمكنك إلغاء الحظر من إعدادات المتصفح">
+            <button
+              type="button"
+              onClick={() =>
+                setMessage({
+                  type: "error",
+                  text: "إشعارات المتصفح محظورة حالياً لهذا الموقع. لتفعيلها: انقر على أيقونة القفل/الإعدادات بجانب عنوان الموقع (localhost:3000) أعلى المتصفح ثم اختر السماح بالإشعارات (Allow Notifications).",
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition cursor-pointer shadow-sm"
+              title="انقر لمعرفة كيفية إلغاء الحظر من إعدادات المتصفح"
+            >
               <AlertCircle className="w-4 h-4 text-red-600" />
               <span>الإشعارات محظورة بالمتصفح</span>
-            </span>
+            </button>
           )}
           {browserPermission === "default" && (
             <button
@@ -287,7 +319,13 @@ export default function NotificationsPage() {
             <input
               type="checkbox"
               checked={webPushEnabled}
-              onChange={(e) => setWebPushEnabled(e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setWebPushEnabled(checked);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("skg_web_push_enabled", String(checked));
+                }
+              }}
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1bc3e4]"></div>
@@ -330,7 +368,13 @@ export default function NotificationsPage() {
             <input
               type="checkbox"
               checked={soundEnabled}
-              onChange={(e) => setSoundEnabled(e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setSoundEnabled(checked);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("skg_sound_alerts_enabled", String(checked));
+                }
+              }}
               className="w-4 h-4 accent-[#1bc3e4] cursor-pointer"
             />
           </div>
@@ -386,7 +430,7 @@ export default function NotificationsPage() {
             <button
               type="button"
               onClick={handleTestNotification}
-              disabled={testingPush || !webPushEnabled}
+              disabled={testingPush}
               className="px-4 py-2.5 rounded-xl font-semibold text-[#07365f] bg-[#edf5f8] hover:bg-[#b5d7e3]/40 border border-[#b5d7e3] transition flex items-center gap-2 cursor-pointer disabled:opacity-50 text-sm"
             >
               {testingPush ? (

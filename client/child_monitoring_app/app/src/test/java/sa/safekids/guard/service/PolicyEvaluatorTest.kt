@@ -43,19 +43,28 @@ class PolicyEvaluatorTest {
     }
 
     @Test
-    fun `findMatchingBlacklistedDomain matches case-insensitively and ignores blank entries`() {
-        val blacklist = setOf("  BadSite.com ", "unsafe-game.net", "")
+    fun `findMatchingBlacklistedDomain matches case-insensitively and normalizes www and paths`() {
+        val blacklist = setOf("  https://www.BadSite.com/login ", "unsafe-game.net", "")
         val matched = PolicyEvaluator.findMatchingBlacklistedDomain(
-            text = "تصفح الموقع https://www.badsite.com/play الآن",
+            text = "تصفح الموقع badsite.com الآن",
             blacklistedUrls = blacklist
         )
-        assertEquals("  BadSite.com ", matched)
+        assertEquals("badsite.com", matched)
 
         val safeMatch = PolicyEvaluator.findMatchingBlacklistedDomain(
             text = "موقع تعليمي آمن للأطفال https://uj.edu.sa",
             blacklistedUrls = blacklist
         )
         assertNull(safeMatch)
+    }
+
+    @Test
+    fun `isAppBlocked matches exact packages, regional aliases, and custom keywords`() {
+        val blocked = setOf("com.zhiliaoapp.musically", "youtube")
+        assertTrue(PolicyEvaluator.isAppBlocked("com.zhiliaoapp.musically", blocked))
+        assertTrue(PolicyEvaluator.isAppBlocked("com.ss.android.ugc.trill", blocked))
+        assertTrue(PolicyEvaluator.isAppBlocked("com.google.android.youtube", blocked))
+        assertFalse(PolicyEvaluator.isAppBlocked("com.whatsapp", blocked))
     }
 
     @Test

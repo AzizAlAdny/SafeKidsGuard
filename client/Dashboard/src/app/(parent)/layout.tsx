@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,8 +16,16 @@ import {
   Menu,
   X,
   Activity,
+  ShieldAlert,
+  ExternalLink,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
+import {
+  CATEGORY_LABELS_AR,
+  LivePushPayload,
+  triggerBrowserNotification,
+} from "@/lib/browser-notifications";
 
 const navItems = [
   { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
@@ -34,6 +42,10 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { user, isAuthenticated, isInitialized, initialize, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [liveToasts, setLiveToasts] = useState<LivePushPayload[]>([]);
+  const seenAlertsRef = useRef<Map<string, string>>(new Map());
+  const initialPollDoneRef = useRef<boolean>(false);
+  const childrenMapRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     initialize();
@@ -44,6 +56,127 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
       router.replace("/login");
     }
   }, [isInitialized, isAuthenticated, router]);
+
+  // Listen for in-app live push notification events (from test button or real-time alert poller)
+  useEffect(() => {
+    const handleLivePush = (e: Event) => {
+      const customEvent = e as CustomEvent<LivePushPayload>;
+      const payload = customEvent.detail;
+      if (!payload) return;
+
+      setLiveToasts((prev) => [payload, ...prev].slice(0, 3));
+
+      // Auto-dismiss after 9 seconds
+      setTimeout(() => {
+        setLiveToasts((prev) => prev.filter((item) => item.id !== payload.id));
+      }, 9000);
+    };
+
+    window.addEventListener("skg-live-push", handleLivePush);
+    return () => window.removeEventListener("skg-live-push", handleLivePush);
+  }, []);
+
+  // Real-time background alert watcher (polls GET /alerts?limit=5 every 4s while authenticated)
+  useEffect(() => {
+    if (!isInitialized || !isAuthenticated) return;
+
+    let isMounted = true;
+
+    async function fetchChildrenMap() {
+      try {
+        const res = await api.get("/auth/children");
+        if (res.data?.children && Array.isArray(res.data.children)) {
+          const map: Record<string, string> = {};
+          res.data.children.forEach((c: { id: string; full_name?: string; nickname?: string }) => {
+            map[c.id] = c.full_name || c.nickname || "جهاز الطفل";
+          });
+          childrenMapRef.current = map;
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    async function pollRecentAlerts() {
+      try {
+        const res = await api.get("/alerts", { params: { limit: 5 } });
+        if (!isMounted || !Array.isArray(res.data)) return;
+
+        const alerts = res.data as Array<{
+          id: string;
+          child_id: string;
+          category: string;
+          content_snippet: string;
+          confidence: number;
+          context_app: string | null;
+          review_status?: string;
+          access_request_reason?: string | null;
+          created_at: string;
+        }>;
+
+        // First poll: baseline existing alert IDs so we don't notify for historical alerts
+        if (!initialPollDoneRef.current) {
+          alerts.forEach((a) => {
+            seenAlertsRef.current.set(a.id, a.review_status || "PENDING");
+          });
+          initialPollDoneRef.current = true;
+          return;
+        }
+
+        const webPushPref = localStorage.getItem("skg_web_push_enabled");
+        const pushEnabled = webPushPref !== "false";
+
+        for (const alert of alerts) {
+          const prevStatus = seenAlertsRef.current.get(alert.id);
+          const currentStatus = alert.review_status || "PENDING";
+          const isNewAlert = prevStatus === undefined;
+          const isNewAppeal = prevStatus !== undefined && prevStatus !== "ACCESS_REQUESTED" && currentStatus === "ACCESS_REQUESTED";
+
+          seenAlertsRef.current.set(alert.id, currentStatus);
+
+          if ((isNewAlert || isNewAppeal) && pushEnabled) {
+            const childName = childrenMapRef.current[alert.child_id] || "جهاز الطفل";
+            const catAr = CATEGORY_LABELS_AR[alert.category] || alert.category;
+            const confPct = Math.round((alert.confidence > 1 ? alert.confidence : alert.confidence * 100));
+
+            if (isNewAppeal) {
+              await triggerBrowserNotification({
+                title: `📩 طلب مراجعة من ${childName}`,
+                body: `طلب الطفل مراجعة حظر المحتوى (${catAr}): "${alert.access_request_reason || alert.content_snippet}"`,
+                category: "ACCESS_REQUEST",
+                childName,
+                confidence: confPct,
+                contextApp: alert.context_app,
+              });
+            } else {
+              await triggerBrowserNotification({
+                title: `⚠️ تنبيه أمان فوري — ${catAr}`,
+                body: `تم رصد وحظر محتوى (${catAr}) على جهاز "${childName}" بنسبة ثقة ${confPct}%: "${alert.content_snippet.slice(0, 80)}"`,
+                category: alert.category,
+                childName,
+                confidence: confPct,
+                contextApp: alert.context_app,
+              });
+            }
+
+            window.dispatchEvent(new CustomEvent("skg-alerts-updated"));
+          }
+        }
+      } catch {
+        // Ignore transient network errors during background poll
+      }
+    }
+
+    fetchChildrenMap().then(() => {
+      pollRecentAlerts();
+    });
+
+    const intervalId = setInterval(pollRecentAlerts, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [isInitialized, isAuthenticated]);
 
   const handleLogout = async () => {
     await logout();
@@ -170,6 +303,64 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+
+      {/* Real-Time Browser Push Notification Popup Stack */}
+      {liveToasts.length > 0 && (
+        <div
+          dir="rtl"
+          className="fixed top-5 left-5 z-50 flex flex-col gap-3 w-[92vw] max-w-md pointer-events-none"
+        >
+          {liveToasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="pointer-events-auto bg-white border-2 border-[#e33a0a]/40 rounded-2xl shadow-2xl p-4 transition-all animate-in fade-in slide-in-from-top-3 duration-200"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#fdece7] text-[#e33a0a] flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <ShieldAlert className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-extrabold text-[#07365f]">
+                        {toast.title}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        إشعار متصفح فوري
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#387b94] leading-relaxed">
+                      {toast.body}
+                    </p>
+                    <div className="pt-1.5 flex items-center gap-3">
+                      <Link
+                        href="/alerts"
+                        onClick={() =>
+                          setLiveToasts((prev) => prev.filter((item) => item.id !== toast.id))
+                        }
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#159cb7] hover:text-[#07365f] transition"
+                      >
+                        <span>فتح سجل التنبيهات</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLiveToasts((prev) => prev.filter((item) => item.id !== toast.id))
+                  }
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
