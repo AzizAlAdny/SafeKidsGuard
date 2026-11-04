@@ -72,7 +72,7 @@ export default function LoginPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} method="post" className="space-y-5">
           <div>
             <label htmlFor="login_email" className="block text-sm font-semibold text-[#07365f] mb-1.5 text-right">
               البريد الإلكتروني

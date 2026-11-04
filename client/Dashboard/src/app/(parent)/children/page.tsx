@@ -59,7 +59,7 @@ export default function ChildrenPage() {
       setChildrenList((prev) => prev.filter((c) => c.id !== childToDelete.id));
       setChildToDelete(null);
     } catch (err: any) {
-      console.error("Failed to delete child account:", err);
+      console.warn("Failed to delete child account:", err);
     } finally {
       setDeleteLoading(false);
     }
@@ -83,7 +83,7 @@ export default function ChildrenPage() {
         }))
       );
     } catch (err) {
-      console.error("Failed to load children from server:", err);
+      console.warn("Failed to load children from server:", err);
     } finally {
       setInitialLoading(false);
     }
@@ -137,7 +137,7 @@ export default function ChildrenPage() {
         )
       );
     } catch (err) {
-      console.error("Failed to generate pairing PIN:", err);
+      console.warn("Failed to generate pairing PIN:", err);
     } finally {
       setGeneratingPinFor(null);
     }

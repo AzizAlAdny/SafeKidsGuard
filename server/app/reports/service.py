@@ -19,13 +19,15 @@ from app.auth.models import Family, FamilyMember, User
 from app.reports.schemas import CategoryCount, DailyTrend, ReportSummaryResponse
 
 CATEGORY_ARABIC_MAP = {
-    "SAFE": "محتوى آمن (Safe)",
-    "CYBERBULLYING": "تنمر إلكتروني (Cyberbullying)",
-    "SEXUAL": "محتوى غير لائق (Sexual)",
-    "VIOLENCE": "عنف وتهديد (Violence)",
-    "HATE_SPEECH": "خطاب كراهية (Hate Speech)",
-    "BLOCKED_APP": "تطبيق محظور (Blocked App)",
-    "BLACKLISTED_URL": "رابط محظور (Blacklisted URL)",
+    "SAFE": "محتوى آمن",
+    "CYBERBULLYING": "تنمر إلكتروني",
+    "SEXUAL": "محتوى غير لائق",
+    "VIOLENCE": "عنف وتهديد",
+    "HATE_SPEECH": "خطاب كراهية",
+    "BLOCKED_APP": "تطبيق محظور",
+    "BLACKLISTED_URL": "رابط محظور",
+    "SCREEN_TIME": "تجاوز وقت الشاشة",
+    "BEDTIME": "مخالفة وقت النوم",
 }
 
 
@@ -161,7 +163,7 @@ async def get_report_summary(
 
 
 def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
-    """Generate an executive PDF report using ReportLab with Arabic Unicode shaping."""
+    """Generate a complete Arabic RTL executive PDF report using ReportLab with Arabic Unicode shaping."""
     buffer = io.BytesIO()
     font_name = _register_arabic_font()
     doc = SimpleDocTemplate(
@@ -179,7 +181,7 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
         parent=styles["Heading1"],
         fontName=font_name,
         fontSize=20,
-        leading=24,
+        leading=26,
         textColor=colors.HexColor("#07365f"),
         alignment=1,  # Center
     )
@@ -188,64 +190,82 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
         parent=styles["Normal"],
         fontName=font_name,
         fontSize=11,
+        leading=16,
         textColor=colors.HexColor("#387b94"),
-        alignment=1,
+        alignment=1,  # Center
     )
     section_style = ParagraphStyle(
         "SectionHeader",
         parent=styles["Heading2"],
         fontName=font_name,
         fontSize=14,
-        leading=18,
+        leading=20,
         textColor=colors.HexColor("#07365f"),
+        alignment=2,  # Right-aligned for Arabic RTL
     )
     body_style = ParagraphStyle(
         "Body",
         parent=styles["Normal"],
         fontName=font_name,
-        fontSize=10,
-        leading=14,
+        fontSize=11,
+        leading=16,
         textColor=colors.HexColor("#1b2533"),
+        alignment=2,  # Right-aligned for Arabic RTL
     )
 
     elements = []
 
-    # Title & Header
-    elements.append(Paragraph("Safe Kids Guard - Parental Safety Report", title_style))
+    # ── العنوان الرئيسي والترويسة ─────────────────────────────────────
+    elements.append(Paragraph(_shape_arabic_text("حارس الأطفال الآمن — التقرير التنفيذي لأمان المحتوى"), title_style))
     elements.append(Spacer(1, 4))
-    elements.append(Paragraph(_shape_arabic_text("تقرير أمان محتوى الأطفال - جامعة جدة"), subtitle_style))
-    elements.append(Spacer(1, 16))
+    elements.append(Paragraph(_shape_arabic_text("منصة الرقابة الأبوية الذكية بالذكاء الاصطناعي "), subtitle_style))
+    elements.append(Spacer(1, 18))
 
-    # Period Info Table
-    target_child_label = _shape_arabic_text(summary.child_name or "All Linked Children (الكل)")
+    # ── جدول بيانات التقرير الأساسية (RTL: القيمة يساراً والبيان يميناً) ──
+    target_child_label = _shape_arabic_text(summary.child_name or "جميع الأطفال المرتبطين بالحساب")
+    period_str = _shape_arabic_text(f"من {summary.start_date} إلى {summary.end_date}")
+    issued_at_str = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+
     info_data = [
-        ["Report Period", f"{summary.start_date} to {summary.end_date}"],
-        ["Target Child", target_child_label],
-        ["Safety Score", f"{summary.safety_score}%"],
+        [period_str, _shape_arabic_text("الفترة الزمنية للتقرير")],
+        [target_child_label, _shape_arabic_text("حساب الطفل المستهدف")],
+        [f"{summary.safety_score}%", _shape_arabic_text("مؤشر الأمان الرقمي العام")],
+        [issued_at_str, _shape_arabic_text("تاريخ ووقت إصدار التقرير")],
     ]
-    info_table = Table(info_data, colWidths=[150, 390])
+    info_table = Table(info_data, colWidths=[370, 170])
     info_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#edf5f8")),
+        ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#d9eef5")),
         ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#07365f")),
         ("FONTNAME", (0, 0), (-1, -1), font_name),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#b5d7e3")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b5d7e3")),
     ]))
     elements.append(info_table)
-    elements.append(Spacer(1, 16))
+    elements.append(Spacer(1, 18))
 
-    # Key Metrics Table
-    elements.append(Paragraph(_shape_arabic_text("Key Protection Metrics (مؤشرات الحماية)"), section_style))
+    # ── أولاً: مؤشرات الحماية والأمان الرئيسية (RTL) ───────────────────
+    elements.append(Paragraph(_shape_arabic_text("أولاً: مؤشرات الحماية والأمان الرئيسية"), section_style))
     elements.append(Spacer(1, 8))
 
     metrics_data = [
-        ["Total Screen Checks", "Allowed Interactions", "Blocked Threats", "Safety Index"],
         [
-            str(summary.total_events),
-            str(summary.allowed_events),
-            str(summary.blocked_events),
+            _shape_arabic_text("مؤشر الأمان الرقمي"),
+            _shape_arabic_text("التهديدات المحجوبة"),
+            _shape_arabic_text("المحتوى السليم (مسموح)"),
+            _shape_arabic_text("إجمالي الفحوصات"),
+        ],
+        [
             f"{summary.safety_score}%",
+            str(summary.blocked_events),
+            str(summary.allowed_events),
+            str(summary.total_events),
         ],
     ]
     metrics_table = Table(metrics_data, colWidths=[135, 135, 135, 135])
@@ -253,9 +273,12 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#159cb7")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("FONTSIZE", (0, 1), (-1, 1), 12),
+        ("TEXTCOLOR", (0, 1), (-1, 1), colors.HexColor("#07365f")),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 9),
         ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#f8fafc")),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#b5d7e3")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b5d7e3")),
@@ -263,36 +286,89 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     elements.append(metrics_table)
     elements.append(Spacer(1, 20))
 
-    # Threat Breakdown Section
-    elements.append(Paragraph(_shape_arabic_text("Threat Breakdown by Category (تفاصيل التهديدات)"), section_style))
+    # ── ثانياً: توزيع التهديدات المرصودة حسب الفئة (RTL) ────────────────
+    elements.append(Paragraph(_shape_arabic_text("ثانياً: توزيع التهديدات والمخاطر المرصودة حسب الفئة"), section_style))
     elements.append(Spacer(1, 8))
 
     if summary.threat_breakdown:
-        breakdown_data = [["Threat Category", "Occurrences", "Percentage of Threats"]]
-        total_threats = max(summary.blocked_events, 1)
+        breakdown_data = [[
+            _shape_arabic_text("النسبة المئوية من التهديدات"),
+            _shape_arabic_text("عدد مرات الرصد والحظر"),
+            _shape_arabic_text("فئة التهديد المرصود"),
+        ]]
+        total_threats = max(sum(c.count for c in summary.threat_breakdown), 1)
         for cat in summary.threat_breakdown:
             pct = round((cat.count / total_threats) * 100, 1)
-            breakdown_data.append([_shape_arabic_text(cat.label_ar), str(cat.count), f"{pct}%"])
+            arabic_cat = CATEGORY_ARABIC_MAP.get(cat.category, cat.label_ar)
+            breakdown_data.append([
+                f"{pct}%",
+                str(cat.count),
+                _shape_arabic_text(arabic_cat),
+            ])
 
-        breakdown_table = Table(breakdown_data, colWidths=[240, 150, 150])
+        breakdown_table = Table(breakdown_data, colWidths=[150, 150, 240])
         breakdown_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#07365f")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
             ("FONTNAME", (0, 0), (-1, -1), font_name),
-            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("ALIGN", (0, 0), (1, -1), "CENTER"),
+            ("ALIGN", (2, 0), (2, -1), "RIGHT"),
+            ("RIGHTPADDING", (2, 0), (2, -1), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#b5d7e3")),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b5d7e3")),
         ]))
         elements.append(breakdown_table)
     else:
         elements.append(
-            Paragraph("No harmful threats detected during this period. Safe browsing maintained.", body_style)
+            Paragraph(_shape_arabic_text("لم يتم رصد أي تهديدات أو محتوى ضار خلال هذه الفترة — التصفح آمن تماماً."), body_style)
         )
 
-    elements.append(Spacer(1, 30))
+    elements.append(Spacer(1, 20))
+
+    # ── ثالثاً: السجل اليومي لنشاط الفحص والحماية (RTL) ─────────────────
+    if summary.daily_trends:
+        elements.append(Paragraph(_shape_arabic_text("ثالثاً: السجل اليومي لنشاط الفحص والحماية"), section_style))
+        elements.append(Spacer(1, 8))
+
+        daily_data = [[
+            _shape_arabic_text("التهديدات المحجوبة"),
+            _shape_arabic_text("المحتوى السليم"),
+            _shape_arabic_text("إجمالي الفحوصات"),
+            _shape_arabic_text("التاريخ"),
+        ]]
+        for day in summary.daily_trends:
+            daily_data.append([
+                str(day.blocked),
+                str(day.allowed),
+                str(day.total),
+                day.date,
+            ])
+
+        daily_table = Table(daily_data, colWidths=[135, 135, 135, 135])
+        daily_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#159cb7")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+            ("FONTNAME", (0, 0), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#b5d7e3")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b5d7e3")),
+        ]))
+        elements.append(daily_table)
+
+    elements.append(Spacer(1, 24))
     elements.append(
-        Paragraph(_shape_arabic_text("Generated automatically by Safe Kids Guard Platform (حارس الأطفال الآمن) - University of Jeddah"), subtitle_style)
+        Paragraph(
+            _shape_arabic_text("تم إصدار هذا التقرير آلياً بواسطة منصة حارس الأطفال الآمن (Safe Kids Guard)"),
+            subtitle_style,
+        )
     )
 
     doc.build(elements)

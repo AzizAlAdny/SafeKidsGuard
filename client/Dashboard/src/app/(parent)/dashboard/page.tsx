@@ -60,7 +60,7 @@ function formatRelativeTime(dateStr: string): string {
     if (diffSec < 60) return "الآن";
     if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
     if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
-    return d.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-GB", { year: "numeric", month: "2-digit", day: "2-digit" });
   } catch {
     return dateStr;
   }
@@ -122,7 +122,7 @@ export default function DashboardPage() {
           safetyScore: Math.round(summary.safety_score || 100),
         });
       } catch (err) {
-        console.error("Failed to load dashboard live data:", err);
+        console.warn("Failed to load dashboard live data:", err);
       } finally {
         setLoading(false);
       }

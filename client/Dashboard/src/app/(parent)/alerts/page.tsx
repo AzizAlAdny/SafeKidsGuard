@@ -50,12 +50,13 @@ const CATEGORY_MAP: Record<string, { label: string; color: string; bgColor: stri
 function formatAlertDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleString("ar-SA", {
+    return d.toLocaleString("en-GB", {
       year: "numeric",
-      month: "short",
-      day: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   } catch {
     return dateStr;
@@ -99,7 +100,7 @@ export default function AlertsPage() {
         setAlerts([]);
       }
     } catch (err) {
-      console.error("Failed to load alerts feed:", err);
+      console.warn("Failed to load alerts feed:", err);
       setAlerts([]);
     } finally {
       setLoading(false);
@@ -337,7 +338,7 @@ export default function AlertsPage() {
                           تم الحظر فورياً
                         </span>
                       </td>
-                      <td className="p-4 text-xs text-gray-500 whitespace-nowrap">
+                      <td dir="ltr" className="p-4 text-xs font-mono text-gray-500 whitespace-nowrap text-right">
                         {formatAlertDate(alert.created_at)}
                       </td>
                     </tr>

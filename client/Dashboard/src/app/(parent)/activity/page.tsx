@@ -65,7 +65,7 @@ export default function ActivityPage() {
         const res = await api.get("/auth/children");
         setChildren(res.data?.children || []);
       } catch (err) {
-        console.error("Failed to load children", err);
+        console.warn("Failed to load children", err);
       }
     }
     loadChildren();
@@ -84,7 +84,7 @@ export default function ActivityPage() {
       setActivities(res.data?.items || []);
       setTotal(res.data?.total || 0);
     } catch (err) {
-      console.error("Failed to fetch activity log", err);
+      console.warn("Failed to fetch activity log", err);
       // Fallback sample data for demonstration if DB empty
       const sample = [
         {
@@ -320,8 +320,11 @@ export default function ActivityPage() {
 
                   return (
                     <tr key={act.id} className="hover:bg-[#f8fcfd] transition">
-                      <td className="py-3.5 px-4 text-[#387b94] font-mono text-[11px] whitespace-nowrap">
-                        {new Date(act.timestamp).toLocaleTimeString("ar-SA", {
+                      <td dir="ltr" className="py-3.5 px-4 text-[#387b94] font-mono text-[11px] whitespace-nowrap text-right">
+                        {new Date(act.timestamp).toLocaleString("en-GB", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
                           hour: "2-digit",
                           minute: "2-digit",
                           hour12: true,

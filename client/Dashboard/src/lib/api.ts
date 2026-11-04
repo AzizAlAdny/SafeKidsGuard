@@ -1,18 +1,27 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+function resolveApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location.hostname) {
+    return `http://${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: resolveApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request interceptor to attach JWT token
+// Request interceptor to attach JWT token and dynamic host baseURL
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
+      config.baseURL = resolveApiBaseUrl();
       const token = localStorage.getItem("access_token");
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -34,7 +43,8 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem("refresh_token");
         if (refreshToken) {
           try {
-            const resp = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            const baseUrl = resolveApiBaseUrl();
+            const resp = await axios.post(`${baseUrl}/auth/refresh`, {
               refresh_token: refreshToken,
             });
             const { access_token, refresh_token: newRefreshToken } = resp.data;

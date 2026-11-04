@@ -29,7 +29,11 @@ class Settings(BaseSettings):
 
     # App
     APP_ENV: str = "development"
-    APP_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    APP_CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.1.102:3000",
+    ]
     AI_CONFIDENCE_THRESHOLD: float = 0.75
 
     # AI Engine (Phase 2 Transformers)

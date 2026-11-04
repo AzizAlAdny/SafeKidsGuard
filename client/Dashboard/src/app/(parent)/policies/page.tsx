@@ -81,7 +81,7 @@ export default function PoliciesPage() {
           setSelectedChildId(list[0].id);
         }
       } catch (err) {
-        console.error("Failed to load children", err);
+        console.warn("Failed to load children", err);
         // Fallback for demonstration
         const fallback = [
           { id: "11111111-1111-1111-1111-111111111111", email: "saad@test.com", full_name: "سعد عمر", age: 10 },
@@ -107,7 +107,7 @@ export default function PoliciesPage() {
         const res = await api.get(`/policies/${selectedChildId}`);
         setPolicy(res.data);
       } catch (err) {
-        console.error("Failed to fetch policy, setting defaults", err);
+        console.warn("Failed to fetch policy, setting defaults", err);
         setPolicy({
           child_id: selectedChildId,
           age_level: 1,
@@ -505,6 +505,8 @@ export default function PoliciesPage() {
                   <span>من</span>
                   <input
                     type="time"
+                    dir="ltr"
+                    lang="en-GB"
                     value={policy.bedtime_start || "21:00"}
                     onChange={(e) => setPolicy({ ...policy, bedtime_start: e.target.value })}
                     className="px-2.5 py-1.5 rounded-lg border border-[#b5d7e3] font-mono outline-none"
@@ -512,6 +514,8 @@ export default function PoliciesPage() {
                   <span>إلى</span>
                   <input
                     type="time"
+                    dir="ltr"
+                    lang="en-GB"
                     value={policy.bedtime_end || "06:00"}
                     onChange={(e) => setPolicy({ ...policy, bedtime_end: e.target.value })}
                     className="px-2.5 py-1.5 rounded-lg border border-[#b5d7e3] font-mono outline-none"

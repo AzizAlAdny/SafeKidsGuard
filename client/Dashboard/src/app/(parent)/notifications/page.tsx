@@ -84,7 +84,7 @@ export default function NotificationsPage() {
           }
         }
       } catch (err: any) {
-        console.error("Failed to load preferences:", err);
+        console.warn("Failed to load preferences:", err);
       } finally {
         setLoading(false);
       }
@@ -123,7 +123,7 @@ export default function NotificationsPage() {
           });
         }
       } catch (e) {
-        console.error("Error requesting permission:", e);
+        console.warn("Error requesting permission:", e);
       }
     }
   };

@@ -1,6 +1,7 @@
 """
 Reports router: analytics summary and PDF export.
 """
+import base64
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,6 +47,7 @@ async def get_summary_endpoint(
 async def export_pdf_endpoint(
     child_id: uuid.UUID | None = Query(None, description="Filter summary by child ID"),
     days: int = Query(7, ge=1, le=90, description="Period in days"),
+    format: str | None = Query(None, description="Optional format ('base64' returns JSON to bypass download-manager XHR interception)"),
     current_user: User = Depends(require_role("parent", "admin")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -70,6 +72,12 @@ async def export_pdf_endpoint(
     pdf_bytes = generate_pdf_bytes(summary)
 
     filename = f"SafeKids_Report_{summary.start_date}_to_{summary.end_date}.pdf"
+    if format == "base64":
+        return {
+            "filename": filename,
+            "pdf_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+        }
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
