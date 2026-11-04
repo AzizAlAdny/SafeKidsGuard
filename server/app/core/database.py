@@ -8,7 +8,7 @@ from app.core.config import settings
 
 # Configure engine arguments based on dialect (SQLite vs PostgreSQL/MySQL)
 engine_kwargs = {
-    "echo": settings.APP_ENV == "development",
+    "echo": False,
 }
 
 if settings.DATABASE_URL.startswith("sqlite"):

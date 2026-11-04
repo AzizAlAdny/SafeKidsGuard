@@ -33,9 +33,9 @@ Ensure your computer and your Android phone are connected to the **same Wi-Fi ne
 ```powershell
 ipconfig
 ```
-Look for **IPv4 Address** under your active Wi-Fi adapter (for example: `192.168.1.50`).
+Look for **IPv4 Address** under your active Wi-Fi adapter (for example: `192.168.1.102`).
 
-* **On a Real Android Phone:** Use `http://192.168.1.50:8000/` (replace with your PC's IPv4).
+* **On a Real Android Phone:** Use `http://192.168.1.102:8000/` (your PC's IPv4).
 * **On an Android Emulator:** Use `http://10.0.2.2:8000/`.
 
 ---
@@ -153,7 +153,7 @@ adb logcat -s SafeKidsGuard_Monitor SafeKidsGuard_Api
    - Open **حارس الأطفال الآمن (Safe Kids Guard)** on the phone.
    - Tap **إعدادات اتصال الخادم (للمطورين)** at the bottom:
      - Emulator: `http://10.0.2.2:8000/`
-     - Real Phone: `http://<YOUR_PC_WIFI_IP>:8000/`
+     - Real Phone: `http://192.168.1.102:8000/`
    - Enter the 6-digit PIN (`482-915`) and tap **ربط وتفعيل الحماية**.
 4. **Android Phone — Enable Permissions:**
    - Notice the status banner initially warns in amber: `"الجهاز مقترن — يرجى تفعيل إمكانية الوصول"`.

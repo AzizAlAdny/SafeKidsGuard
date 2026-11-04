@@ -42,11 +42,21 @@ class MonitoringAccessibilityService : AccessibilityService() {
         private const val POLICY_SYNC_INTERVAL_MS = 300_000L // 5 minutes
         private const val LOCAL_LOG_COOLDOWN_MS = 15_000L // 15-second cooldown for local block activity logs
 
-        // Packages to ignore to prevent loops and unnecessary processing
+        // Packages to ignore to prevent loops and unnecessary processing (Launchers, System UI, Keyboards, Settings)
         private val IGNORED_PACKAGES = setOf(
             "sa.safekids.guard",
             "sa.safekids.guard.debug",
             "com.android.systemui",
+            "com.android.settings",
+            "com.sec.android.app.launcher",
+            "com.google.android.apps.nexuslauncher",
+            "com.android.launcher",
+            "com.android.launcher3",
+            "com.miui.home",
+            "com.huawei.android.launcher",
+            "com.google.android.permissioncontroller",
+            "com.android.permissioncontroller",
+            "com.android.packageinstaller",
             "com.google.android.inputmethod.latin",
             "com.samsung.android.honeyboard",
             "com.sec.android.inputmethod"
@@ -58,6 +68,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
     private var policySyncJob: Job? = null
     private var lastInspectedTextHash: Int = 0
     private var lastInspectionTime: Long = 0L
+    private var serviceStartElapsedMs: Long = SystemClock.elapsedRealtime()
     private val localViolationTimestamps = ConcurrentHashMap<String, Long>()
 
     private lateinit var sessionManager: SessionManager
@@ -66,6 +77,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
     override fun onCreate() {
         super.onCreate()
         sessionManager = SessionManager.getInstance(this)
+        serviceStartElapsedMs = SystemClock.elapsedRealtime()
         Log.i(TAG, "MonitoringAccessibilityService initialized.")
     }
 
@@ -183,26 +195,12 @@ class MonitoringAccessibilityService : AccessibilityService() {
 
     private fun isDailyScreenTimeExceeded(): Boolean {
         val limitMins = sessionManager.screenTimeDailyLimitMins
-        if (limitMins <= 0) return false
-        return try {
-            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return false
-            val cal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            val stats = usm.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY,
-                cal.timeInMillis,
-                System.currentTimeMillis()
-            )
-            val totalForegroundMs = stats?.sumOf { it.totalTimeInForeground } ?: 0L
-            val usedMins = (totalForegroundMs / 60_000L).toInt()
-            usedMins >= limitMins
-        } catch (_: Exception) {
-            false
-        }
+        // 0 or >= 1440 means unlimited daily screen time
+        if (limitMins <= 0 || limitMins >= 1440) return false
+
+        // Track elapsed time since service started / device was paired in this session
+        val activeSessionMins = ((SystemClock.elapsedRealtime() - serviceStartElapsedMs) / 60_000L).toInt()
+        return activeSessionMins >= limitMins
     }
 
     /**

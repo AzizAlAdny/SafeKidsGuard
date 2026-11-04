@@ -14,10 +14,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,10 +29,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -536,56 +546,147 @@ fun ChildAppHomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        TextButton(
-            onClick = { showServerConfig = !showServerConfig }
+        OutlinedButton(
+            onClick = {
+                serverUrl = sessionManager.baseUrl
+                showServerConfig = true
+            },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
+            Icon(
+                imageVector = Icons.Default.SettingsEthernet,
+                contentDescription = "Server URL",
+                tint = BlueGreen500,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (showServerConfig) "إخفاء إعدادات اتصال الخادم" else "إعدادات اتصال الخادم (للمطورين)",
+                text = "Server URL / إعدادات اتصال الخادم (${sessionManager.baseUrl})",
                 fontSize = 12.sp,
-                color = BlueGreen500
+                color = YaleBlue800
             )
         }
 
+        // Modal Dialog with English (LTR) Input for Server URL
         if (showServerConfig) {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "عنوان خادم Safe Kids Guard API:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = YaleBlue800
-                    )
-                    Text(
-                        text = if (isPaired) {
-                            "🔒 لا يمكن تعديل عنوان الخادم أثناء اقتران الجهاز (يتطلب إلغاء الاقتران بكلمة مرور ولي الأمر)"
-                        } else {
-                            "محاكي أندرويد: http://10.0.2.2:8000/\nجهاز حقيقي: عنوان الـ IP المحلي لجهازك"
-                        },
-                        fontSize = 11.sp,
-                        color = if (isPaired) WarningOrange else AliceBlue600,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                    OutlinedTextField(
-                        value = serverUrl,
-                        onValueChange = {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                AlertDialog(
+                    onDismissRequest = { showServerConfig = false },
+                    title = {
+                        Text(
+                            text = "Enter Server URL",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = YaleBlue800
+                        )
+                    },
+                    text = {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = if (isPaired) {
+                                    "Locked while paired (Unpair with parent password to edit)"
+                                } else {
+                                    "Enter the FastAPI Server URL (English / IPv4):"
+                                },
+                                fontSize = 12.sp,
+                                color = if (isPaired) WarningOrange else AliceBlue600,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = serverUrl,
+                                onValueChange = {
+                                    if (!isPaired) {
+                                        serverUrl = it
+                                    }
+                                },
+                                label = { Text("Server URL (http://IP:8000/)") },
+                                placeholder = { Text("http://192.168.1.102:8000/") },
+                                enabled = !isPaired,
+                                readOnly = isPaired,
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp,
+                                    textDirection = TextDirection.Ltr
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    capitalization = KeyboardCapitalization.None,
+                                    autoCorrectEnabled = false,
+                                    imeAction = ImeAction.Done
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+
                             if (!isPaired) {
-                                serverUrl = it
-                                sessionManager.baseUrl = it
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "Quick Presets:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = YaleBlue800
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { serverUrl = SessionManager.DEFAULT_BASE_URL },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("Wi-Fi (192.168.1.102)", fontSize = 11.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { serverUrl = SessionManager.EMULATOR_BASE_URL },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("Emulator (10.0.2.2)", fontSize = 11.sp)
+                                    }
+                                }
                             }
-                        },
-                        enabled = !isPaired,
-                        readOnly = isPaired,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (!isPaired && serverUrl.isNotBlank()) {
+                                    val cleaned = serverUrl.trim()
+                                    val withScheme = if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) {
+                                        cleaned
+                                    } else {
+                                        "http://$cleaned"
+                                    }
+                                    sessionManager.baseUrl = withScheme
+                                    serverUrl = sessionManager.baseUrl
+                                    Toast.makeText(
+                                        context,
+                                        "Saved: ${sessionManager.baseUrl}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                showServerConfig = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BlueGreen500)
+                        ) {
+                            Text(if (isPaired) "Close" else "Save URL")
+                        }
+                    },
+                    dismissButton = {
+                        if (!isPaired) {
+                            TextButton(onClick = { showServerConfig = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                )
             }
         }
     }

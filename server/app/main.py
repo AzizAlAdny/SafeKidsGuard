@@ -2,6 +2,8 @@
 Safe Kids Guard — FastAPI Application Entry Point
 """
 from contextlib import asynccontextmanager
+import logging
+import socket
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,12 +25,28 @@ from app.ai_engine.model import load_models
 from app.core.redis import init_redis, close_redis
 
 
+def _get_local_lan_ip() -> str:
+    """Detect the host machine's active LAN/Wi-Fi IPv4 address for mobile device testing."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup → yield → shutdown."""
     # ── Startup ──────────────────────────────────────────
     await init_redis()
     await load_models()  # AraBERT v2 + CAMeLBERT — lazy singletons
+    lan_ip = _get_local_lan_ip()
+    uvicorn_logger = logging.getLogger("uvicorn.error")
+    uvicorn_logger.info("Uvicorn running on http://%s:8000 (Android Phone Wi-Fi)", lan_ip)
+    uvicorn_logger.info("Uvicorn running on http://localhost:8000 (Local PC)")
+    uvicorn_logger.info("Swagger API Docs:  http://%s:8000/docs", lan_ip)
+    uvicorn_logger.info("Health Check URL:  http://%s:8000/api/v1/health", lan_ip)
     yield
     # ── Shutdown ─────────────────────────────────────────
     await close_redis()
@@ -67,6 +85,13 @@ api_v1_router.include_router(activity_router)
 api_v1_router.include_router(reports_router)
 api_v1_router.include_router(admin_router)
 
+@app.get("/", tags=["Health"])
+@app.get("/health", tags=["Health"])
+@api_v1_router.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok", "service": "Safe Kids Guard API", "version": "1.0.0"}
+
+
 app.include_router(api_v1_router)
 
 # ── Root Backward-Compatibility Aliases ──────────────────
@@ -77,8 +102,3 @@ app.include_router(policies_router, include_in_schema=False)
 app.include_router(activity_router, include_in_schema=False)
 app.include_router(reports_router, include_in_schema=False)
 app.include_router(admin_router, include_in_schema=False)
-
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "ok", "service": "Safe Kids Guard API", "version": "1.0.0"}

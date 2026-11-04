@@ -52,9 +52,11 @@ class SessionManager(context: Context) {
         private const val KEY_SCREEN_TIME_MINS = "key_screen_time_mins"
         private const val KEY_BEDTIME_START = "key_bedtime_start"
         private const val KEY_BEDTIME_END = "key_bedtime_end"
+        private const val KEY_PAIRED_AT_MS = "key_paired_at_ms"
 
-        // Default Android Emulator IP connecting to host PC
-        const val DEFAULT_BASE_URL = "http://10.0.2.2:8000/"
+        // Default Server URL (Physical device LAN IP or Emulator loopback)
+        const val DEFAULT_BASE_URL = "http://192.168.1.102:8000/"
+        const val EMULATOR_BASE_URL = "http://10.0.2.2:8000/"
 
         @Volatile
         private var INSTANCE: SessionManager? = null
@@ -133,6 +135,10 @@ class SessionManager(context: Context) {
         get() = prefs.getString(KEY_BEDTIME_END, "06:00") ?: "06:00"
         set(value) = prefs.edit().putString(KEY_BEDTIME_END, value).apply()
 
+    var pairedAtTimestamp: Long
+        get() = prefs.getLong(KEY_PAIRED_AT_MS, System.currentTimeMillis())
+        set(value) = prefs.edit().putLong(KEY_PAIRED_AT_MS, value).apply()
+
     fun saveSession(
         childId: String,
         childName: String,
@@ -145,6 +151,7 @@ class SessionManager(context: Context) {
             .putString(KEY_ACCESS_TOKEN, accessToken)
             .putString(KEY_REFRESH_TOKEN, refreshToken)
             .putBoolean(KEY_IS_PAIRED, true)
+            .putLong(KEY_PAIRED_AT_MS, System.currentTimeMillis())
             .apply()
     }
 
