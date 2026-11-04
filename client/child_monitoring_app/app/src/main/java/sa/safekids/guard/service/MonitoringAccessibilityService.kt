@@ -21,11 +21,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import sa.safekids.guard.data.SessionManager
+import sa.safekids.guard.network.ActivityEventDto
 import sa.safekids.guard.network.ApiClient
 import sa.safekids.guard.network.ClassificationRequest
 import sa.safekids.guard.ui.MainActivity
 import java.io.IOException
 import java.util.Calendar
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * MonitoringAccessibilityService silently inspects on-screen Arabic text in real time,
@@ -38,6 +40,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
         private const val TAG = "SafeKidsGuard_Monitor"
         private const val DEBOUNCE_DELAY_MS = 1500L // 1.5-second debouncing window
         private const val POLICY_SYNC_INTERVAL_MS = 300_000L // 5 minutes
+        private const val LOCAL_LOG_COOLDOWN_MS = 15_000L // 15-second cooldown for local block activity logs
 
         // Packages to ignore to prevent loops and unnecessary processing
         private val IGNORED_PACKAGES = setOf(
@@ -55,6 +58,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
     private var policySyncJob: Job? = null
     private var lastInspectedTextHash: Int = 0
     private var lastInspectionTime: Long = 0L
+    private val localViolationTimestamps = ConcurrentHashMap<String, Long>()
 
     private lateinit var sessionManager: SessionManager
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -109,28 +113,49 @@ class MonitoringAccessibilityService : AccessibilityService() {
         // Immediate local policy checks on window/app changes (<50ms response)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (sessionManager.blockedApps.contains(packageName)) {
+                val reason = "هذا التطبيق محظور بواسطة إعدادات العائلة ($packageName)"
+                logLocalViolationToServer(
+                    category = "BLOCKED_APP",
+                    packageName = packageName,
+                    url = null,
+                    snippet = reason
+                )
                 handleHarmfulContentDetected(
                     category = "BLOCKED_APP",
                     packageName = packageName,
-                    reason = "هذا التطبيق محظور بواسطة إعدادات العائلة ($packageName)"
+                    reason = reason
                 )
                 return
             }
 
             if (isCurrentlyInBedtimeWindow()) {
+                val reason = "وقت النوم نشط الآن (${sessionManager.bedtimeStart} - ${sessionManager.bedtimeEnd})"
+                logLocalViolationToServer(
+                    category = "BEDTIME",
+                    packageName = packageName,
+                    url = null,
+                    snippet = reason
+                )
                 handleHarmfulContentDetected(
                     category = "BEDTIME",
                     packageName = packageName,
-                    reason = "وقت النوم نشط الآن (${sessionManager.bedtimeStart} - ${sessionManager.bedtimeEnd})"
+                    reason = reason
                 )
                 return
             }
 
             if (isDailyScreenTimeExceeded()) {
+                val reason = "انتهى الحد اليومي المسموح لاستخدام الشاشة (${sessionManager.screenTimeDailyLimitMins} دقيقة)"
+                logLocalViolationToServer(
+                    category = "SCREEN_TIME",
+                    packageName = packageName,
+                    url = null,
+                    snippet = reason
+                )
                 handleHarmfulContentDetected(
                     category = "SCREEN_TIME",
                     packageName = packageName,
-                    reason = "انتهى الحد اليومي المسموح لاستخدام الشاشة (${sessionManager.screenTimeDailyLimitMins} دقيقة)"
+                    reason = reason
                 )
                 return
             }
@@ -147,28 +172,13 @@ class MonitoringAccessibilityService : AccessibilityService() {
     }
 
     private fun isCurrentlyInBedtimeWindow(): Boolean {
-        val start = sessionManager.bedtimeStart
-        val end = sessionManager.bedtimeEnd
-        if (start.isBlank() || end.isBlank()) return false
-
-        return try {
-            val startParts = start.split(":")
-            val endParts = end.split(":")
-            val startMins = startParts[0].toInt() * 60 + startParts[1].toInt()
-            val endMins = endParts[0].toInt() * 60 + endParts[1].toInt()
-
-            val cal = Calendar.getInstance()
-            val nowMins = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-
-            if (startMins <= endMins) {
-                nowMins in startMins..endMins
-            } else {
-                // Cross-midnight window (e.g., 21:00 to 06:00)
-                nowMins >= startMins || nowMins <= endMins
-            }
-        } catch (_: Exception) {
-            false
-        }
+        val cal = Calendar.getInstance()
+        return PolicyEvaluator.isInBedtimeWindow(
+            start = sessionManager.bedtimeStart,
+            end = sessionManager.bedtimeEnd,
+            currentHour = cal.get(Calendar.HOUR_OF_DAY),
+            currentMinute = cal.get(Calendar.MINUTE)
+        )
     }
 
     private fun isDailyScreenTimeExceeded(): Boolean {
@@ -196,28 +206,35 @@ class MonitoringAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Traverses visible nodes, collects non-sensitive text, and schedules
-     * inspection with a 1.5-second debounce timer.
+     * Traverses visible nodes, collects non-sensitive text (bounded to MAX_TEXT_LENGTH),
+     * and schedules inspection with a 1.5-second debounce timer.
      */
     private fun scheduleDebouncedInspection(rootNode: AccessibilityNodeInfo, packageName: String) {
         val stringBuilder = StringBuilder()
         extractVisibleText(rootNode, stringBuilder)
 
-        val combinedText = stringBuilder.toString().trim()
+        val combinedText = PolicyEvaluator.boundTextPayload(stringBuilder.toString())
         if (combinedText.length < 4) return
 
         // Immediate local blacklisted URL check
-        val lowerText = combinedText.lowercase()
-        for (domain in sessionManager.blacklistedUrls) {
-            val cleanDomain = domain.trim().lowercase()
-            if (cleanDomain.isNotEmpty() && lowerText.contains(cleanDomain)) {
-                handleHarmfulContentDetected(
-                    category = "BLACKLISTED_URL",
-                    packageName = packageName,
-                    reason = "الرابط محظور بواسطة إعدادات الحماية: $domain"
-                )
-                return
-            }
+        val matchedDomain = PolicyEvaluator.findMatchingBlacklistedDomain(
+            text = combinedText,
+            blacklistedUrls = sessionManager.blacklistedUrls
+        )
+        if (matchedDomain != null) {
+            val reason = "الرابط محظور بواسطة إعدادات الحماية: $matchedDomain"
+            logLocalViolationToServer(
+                category = "BLACKLISTED_URL",
+                packageName = packageName,
+                url = matchedDomain,
+                snippet = reason
+            )
+            handleHarmfulContentDetected(
+                category = "BLACKLISTED_URL",
+                packageName = packageName,
+                reason = reason
+            )
+            return
         }
 
         val textHash = combinedText.hashCode()
@@ -249,8 +266,10 @@ class MonitoringAccessibilityService : AccessibilityService() {
 
     /**
      * Recursively extracts visible text while skipping password/PIN fields for child privacy.
+     * Stops once PolicyEvaluator.MAX_TEXT_LENGTH is reached to avoid excessive traversal and HTTP 422.
      */
     private fun extractVisibleText(node: AccessibilityNodeInfo, out: StringBuilder) {
+        if (out.length >= PolicyEvaluator.MAX_TEXT_LENGTH) return
         if (node.isPassword) return
 
         val nodeText = node.text?.toString()?.trim()
@@ -263,10 +282,54 @@ class MonitoringAccessibilityService : AccessibilityService() {
             out.append(contentDesc).append(" ")
         }
 
+        if (out.length >= PolicyEvaluator.MAX_TEXT_LENGTH) return
+
         for (i in 0 until node.childCount) {
+            if (out.length >= PolicyEvaluator.MAX_TEXT_LENGTH) break
             val child = node.getChild(i) ?: continue
             extractVisibleText(child, out)
             child.recycle()
+        }
+    }
+
+    /**
+     * Asynchronously records a local policy intervention (blocked app, URL, bedtime, screen time)
+     * to the backend POST /activity endpoint so parents can view it on the dashboard (FR9, FR13).
+     */
+    private fun logLocalViolationToServer(
+        category: String,
+        packageName: String,
+        url: String?,
+        snippet: String
+    ) {
+        val childId = sessionManager.childId
+        val token = sessionManager.accessToken
+        if (childId.isBlank() || token.isBlank()) return
+
+        val dedupKey = "$category:$packageName:${url ?: ""}"
+        val now = SystemClock.elapsedRealtime()
+        val lastLogged = localViolationTimestamps[dedupKey] ?: 0L
+        if (now - lastLogged < LOCAL_LOG_COOLDOWN_MS) return
+        localViolationTimestamps[dedupKey] = now
+
+        serviceScope.launch {
+            try {
+                val apiService = ApiClient.getApiService(this@MonitoringAccessibilityService)
+                apiService.logActivity(
+                    token = "Bearer ${sessionManager.accessToken}",
+                    event = ActivityEventDto(
+                        child_id = childId,
+                        app_name = packageName,
+                        url = url,
+                        content_snippet = snippet.take(200),
+                        category = category,
+                        confidence = 1.0,
+                        verdict = "BLOCKED"
+                    )
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Deferred local violation log ($category): ${e.message}")
+            }
         }
     }
 

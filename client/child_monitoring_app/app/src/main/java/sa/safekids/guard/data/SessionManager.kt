@@ -43,6 +43,10 @@ class SessionManager(context: Context) {
         private const val KEY_REFRESH_TOKEN = "key_refresh_token"
         private const val KEY_IS_PAIRED = "key_is_paired"
         private const val KEY_SENSITIVITY = "key_sensitivity"
+        private const val KEY_BLOCK_VIOLENCE = "key_block_violence"
+        private const val KEY_BLOCK_SEXUAL = "key_block_sexual"
+        private const val KEY_BLOCK_CYBERBULLYING = "key_block_cyberbullying"
+        private const val KEY_BLOCK_HATE_SPEECH = "key_block_hate_speech"
         private const val KEY_BLOCKED_APPS = "key_blocked_apps"
         private const val KEY_BLACKLISTED_URLS = "key_blacklisted_urls"
         private const val KEY_SCREEN_TIME_MINS = "key_screen_time_mins"
@@ -93,6 +97,22 @@ class SessionManager(context: Context) {
         get() = prefs.getFloat(KEY_SENSITIVITY, 0.75f)
         set(value) = prefs.edit().putFloat(KEY_SENSITIVITY, value).apply()
 
+    var blockViolence: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_VIOLENCE, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_VIOLENCE, value).apply()
+
+    var blockSexual: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_SEXUAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_SEXUAL, value).apply()
+
+    var blockCyberbullying: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_CYBERBULLYING, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_CYBERBULLYING, value).apply()
+
+    var blockHateSpeech: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_HATE_SPEECH, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_HATE_SPEECH, value).apply()
+
     var blockedApps: Set<String>
         get() = prefs.getStringSet(KEY_BLOCKED_APPS, emptySet()) ?: emptySet()
         set(value) = prefs.edit().putStringSet(KEY_BLOCKED_APPS, value).apply()
@@ -131,6 +151,10 @@ class SessionManager(context: Context) {
     fun cachePolicy(policy: PolicyDto) {
         prefs.edit()
             .putFloat(KEY_SENSITIVITY, policy.sensitivity_threshold.toFloat())
+            .putBoolean(KEY_BLOCK_VIOLENCE, policy.block_violence)
+            .putBoolean(KEY_BLOCK_SEXUAL, policy.block_sexual)
+            .putBoolean(KEY_BLOCK_CYBERBULLYING, policy.block_cyberbullying)
+            .putBoolean(KEY_BLOCK_HATE_SPEECH, policy.block_hate_speech)
             .putStringSet(KEY_BLOCKED_APPS, policy.blocked_apps.toSet())
             .putStringSet(KEY_BLACKLISTED_URLS, policy.custom_blacklist_urls.toSet())
             .putInt(KEY_SCREEN_TIME_MINS, policy.screen_time_daily_limit_mins)
@@ -145,6 +169,10 @@ class SessionManager(context: Context) {
             .remove(KEY_CHILD_NAME)
             .remove(KEY_ACCESS_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_BLOCK_VIOLENCE)
+            .remove(KEY_BLOCK_SEXUAL)
+            .remove(KEY_BLOCK_CYBERBULLYING)
+            .remove(KEY_BLOCK_HATE_SPEECH)
             .remove(KEY_BLOCKED_APPS)
             .remove(KEY_BLACKLISTED_URLS)
             .putBoolean(KEY_IS_PAIRED, false)

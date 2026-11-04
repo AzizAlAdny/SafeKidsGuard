@@ -74,4 +74,7 @@ dependencies {
 
     // Background Tasks
     implementation(libs.work.runtime.ktx)
+
+    // Unit Testing
+    testImplementation("junit:junit:4.13.2")
 }

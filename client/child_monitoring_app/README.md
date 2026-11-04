@@ -69,7 +69,7 @@ The client acts as the edge monitoring component of the University of Jeddah Saf
         [Decision: ALLOWED]         [Decision: BLOCKED]
           Continue browsing          1. Dismiss app to home screen (GLOBAL_ACTION_HOME)
                                      2. Log violation in audit table
-                                     3. Trigger instant WhatsApp alert to parent
+                                     3. Trigger instant Web Push alert to parent dashboard
 ```
 
 ---
@@ -109,13 +109,17 @@ client/child_monitoring_app/
 │           │   ├── receiver/
 │           │   │   └── BootReceiver.kt  # System boot completion broadcast receiver
 │           │   ├── service/
-│           │   │   └── MonitoringAccessibilityService.kt # Real-time screen text listener
+│           │   │   ├── MonitoringAccessibilityService.kt # Real-time screen text listener
+│           │   │   └── PolicyEvaluator.kt # Pure policy evaluation & payload bounding utilities
 │           │   └── ui/
 │           │       ├── MainActivity.kt  # Compose UI: 6-digit pairing & status monitor
 │           │       └── theme/           # Color palette and typography definitions
 │           └── res/
 │               ├── values/              # Strings, colors, styles
 │               └── xml/                 # Accessibility service capabilities descriptor
+│       └── test/
+│           └── java/sa/safekids/guard/service/
+│               └── PolicyEvaluatorTest.kt # JUnit 4 unit test suite (5/5 passing)
 ├── gradle/
 │   └── libs.versions.toml         # Gradle version catalog
 ├── build.gradle.kts               # Root project build script
@@ -166,6 +170,9 @@ const val BASE_URL = "https://api.safekidsguard.uj.edu.sa/"
 # Navigate to Android project directory
 cd client/child_monitoring_app
 
+# Run JVM unit tests:
+./gradlew testDebugUnitTest
+
 # Build debug APK:
 ./gradlew assembleDebug
 
@@ -188,10 +195,11 @@ The Android client integrates with the following FastAPI endpoints (defined in `
 | Method | Endpoint | Application Role |
 |---|---|---|
 | `POST` | `/auth/pair-device` | Pairs device using parent-generated 6-digit PIN and retrieves child JWT. |
+| `POST` | `/auth/refresh` | Automatically rotates expired JWT access tokens in the background. |
 | `POST` | `/auth/unpair-device` | Verifies parent password before permitting device unpairing. |
 | `POST` | `/classification/predict` | Sends on-screen text snippets for real-time AI classification and policy enforcement. |
 | `POST` | `/alerts/request-access` | Submits child access appeal when content or app is blocked by mistake (`UC-C5`). |
 | `GET` | `/policies/{child_id}` | Synchronizes active safety policy (app/URL blacklist, screen-time, bedtimes). |
-| `POST` | `/activity` | Logs daily usage events for parent review on the dashboard. |
+| `POST` | `/activity` | Logs local policy interventions and usage events for parent review on the dashboard. |
 
 ---

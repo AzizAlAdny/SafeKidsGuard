@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Default: enforce HTTPS for all production traffic -->
+    <!-- Default: enforce HTTPS for all production release traffic -->
     <base-config cleartextTrafficPermitted="false" />
 
     <!-- Local development & Android Emulator host loopback -->
@@ -9,4 +9,9 @@
         <domain includeSubdomains="true">127.0.0.1</domain>
         <domain includeSubdomains="true">localhost</domain>
     </domain-config>
+
+    <!-- Debug builds only: permit cleartext HTTP to local Wi-Fi LAN IPs (e.g. 192.168.x.x) on physical test devices -->
+    <debug-overrides>
+        <base-config cleartextTrafficPermitted="true" />
+    </debug-overrides>
 </network-security-config>

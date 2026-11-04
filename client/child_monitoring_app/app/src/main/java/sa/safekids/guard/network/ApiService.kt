@@ -1,5 +1,6 @@
 package sa.safekids.guard.network
 
+import androidx.annotation.Keep
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -7,20 +8,29 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
+@Keep
 data class LoginDto(
     val email: String,
     val password: String
 )
 
+@Keep
+data class RefreshTokenRequestDto(
+    val refresh_token: String
+)
+
+@Keep
 data class TokenDto(
     val access_token: String,
     val refresh_token: String
 )
 
+@Keep
 data class PairDeviceRequestDto(
     val pairing_pin: String
 )
 
+@Keep
 data class PairDeviceResponseDto(
     val access_token: String,
     val refresh_token: String,
@@ -30,10 +40,12 @@ data class PairDeviceResponseDto(
     val family_id: String
 )
 
+@Keep
 data class UnpairDeviceRequestDto(
     val parent_password: String
 )
 
+@Keep
 data class AccessAppealRequestDto(
     val child_id: String,
     val alert_id: String? = null,
@@ -41,12 +53,14 @@ data class AccessAppealRequestDto(
     val context_app: String? = null
 )
 
+@Keep
 data class ClassificationRequest(
     val text: String,
     val child_id: String,
     val context_app: String? = null
 )
 
+@Keep
 data class ClassificationResponse(
     val verdict: String, // ALLOWED or BLOCKED
     val category: String, // SAFE, CYBERBULLYING, SEXUAL, VIOLENCE, HATE_SPEECH
@@ -57,6 +71,7 @@ data class ClassificationResponse(
     val cached: Boolean = false
 )
 
+@Keep
 data class PolicyDto(
     val id: String,
     val child_id: String,
@@ -74,6 +89,7 @@ data class PolicyDto(
     val bedtime_end: String?
 )
 
+@Keep
 data class ActivityEventDto(
     val child_id: String,
     val app_name: String?,
@@ -87,6 +103,9 @@ data class ActivityEventDto(
 interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body body: LoginDto): Response<TokenDto>
+
+    @POST("auth/refresh")
+    suspend fun refreshToken(@Body body: RefreshTokenRequestDto): Response<TokenDto>
 
     @POST("auth/pair-device")
     suspend fun pairDevice(@Body body: PairDeviceRequestDto): Response<PairDeviceResponseDto>

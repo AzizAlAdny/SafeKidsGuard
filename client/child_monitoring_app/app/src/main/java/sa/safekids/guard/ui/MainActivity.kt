@@ -1,7 +1,11 @@
 package sa.safekids.guard.ui
 
+import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -14,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +33,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import sa.safekids.guard.R
@@ -36,6 +44,8 @@ import sa.safekids.guard.network.AccessAppealRequestDto
 import sa.safekids.guard.network.ApiClient
 import sa.safekids.guard.network.PairDeviceRequestDto
 import sa.safekids.guard.network.UnpairDeviceRequestDto
+import sa.safekids.guard.service.MonitoringAccessibilityService
+import sa.safekids.guard.service.PolicyEvaluator
 import sa.safekids.guard.ui.theme.*
 
 @AndroidEntryPoint
@@ -105,6 +115,7 @@ fun ChildAppHomeScreen(
     onOpenUsageSettings: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val sessionManager = remember { SessionManager.getInstance(context) }
 
@@ -114,6 +125,26 @@ fun ChildAppHomeScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf(sessionManager.baseUrl) }
     var showServerConfig by remember { mutableStateOf(false) }
+
+    var isAccessibilityEnabled by remember {
+        mutableStateOf(isAccessibilityServiceEnabled(context))
+    }
+    var isUsageStatsGranted by remember {
+        mutableStateOf(isUsageStatsPermissionGranted(context))
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+                isUsageStatsGranted = isUsageStatsPermissionGranted(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Protected unpair dialog state
     var showUnpairDialog by remember { mutableStateOf(false) }
@@ -296,11 +327,11 @@ fun ChildAppHomeScreen(
 
                     Button(
                         onClick = {
-                            val cleanedPin = pairingPin.replace("-", "").trim()
-                            if (cleanedPin.length != 6) {
-                                errorMessage = "يرجى إدخال رمز مكون من 6 أرقام"
+                            if (!PolicyEvaluator.isValidPairingPin(pairingPin)) {
+                                errorMessage = "يرجى إدخال رمز رقمي صحيح مكون من 6 أرقام"
                                 return@Button
                             }
+                            val cleanedPin = PolicyEvaluator.sanitizePairingPin(pairingPin)
                             isPairingLoading = true
                             errorMessage = null
                             scope.launch {
@@ -325,6 +356,7 @@ fun ChildAppHomeScreen(
                                         } catch (_: Exception) {}
 
                                         isPaired = true
+                                        showServerConfig = false
                                     } else {
                                         errorMessage = "رمز الاقتران غير صحيح أو منتهي الصلاحية"
                                     }
@@ -348,9 +380,12 @@ fun ChildAppHomeScreen(
                 }
             }
         } else {
+            val protectionFullyReady = isAccessibilityEnabled
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF9EF)),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (protectionFullyReady) Color(0xFFEAF9EF) else Color(0xFFFFF8E6)
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -358,20 +393,29 @@ fun ChildAppHomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Active",
-                        tint = Emerald500,
+                        imageVector = if (protectionFullyReady) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        contentDescription = if (protectionFullyReady) "Active" else "Permission Required",
+                        tint = if (protectionFullyReady) Emerald500 else WarningOrange,
                         modifier = Modifier.size(44.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "الحماية مفعلة ونشطة (${sessionManager.childName})",
+                        text = if (protectionFullyReady) {
+                            "الحماية مفعلة ونشطة (${sessionManager.childName})"
+                        } else {
+                            "الجهاز مقترن — يرجى تفعيل إمكانية الوصول (${sessionManager.childName})"
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color(0xFF1A6F2F)
+                        color = if (protectionFullyReady) Color(0xFF1A6F2F) else Color(0xFF9A5B00),
+                        textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "الجهاز مقترن بنجاح ويتم فحص النصوص وتطبيق سياسات الحماية وأوقات النوم تلقائياً.",
+                        text = if (protectionFullyReady) {
+                            "الجهاز مقترن بنجاح ويتم فحص النصوص وتطبيق سياسات الحماية وأوقات النوم تلقائياً."
+                        } else {
+                            "لتشغيل الفحص الفوري وحظر المحتوى الضار، يرجى تفعيل خدمة إمكانية الوصول من الزر أدناه."
+                        },
                         fontSize = 12.sp,
                         color = YaleBlue800,
                         textAlign = TextAlign.Center,
@@ -393,7 +437,13 @@ fun ChildAppHomeScreen(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("إعدادات إمكانية الوصول (Accessibility)")
+                Text(
+                    if (isAccessibilityEnabled) {
+                        "إعدادات إمكانية الوصول (مفعل ✓)"
+                    } else {
+                        "إعدادات إمكانية الوصول (غير مفعل ⚠️ - اضغط للتفعيل)"
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -403,7 +453,13 @@ fun ChildAppHomeScreen(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("إذن إحصائيات استخدام التطبيقات")
+                Text(
+                    if (isUsageStatsGranted) {
+                        "إذن إحصائيات استخدام التطبيقات (مفعل ✓)"
+                    } else {
+                        "إذن إحصائيات استخدام التطبيقات (غير مفعل ⚠️)"
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -506,17 +562,25 @@ fun ChildAppHomeScreen(
                         color = YaleBlue800
                     )
                     Text(
-                        text = "محاكي أندرويد: http://10.0.2.2:8000/\nجهاز حقيقي: عنوان الـ IP المحلي لجهازك",
+                        text = if (isPaired) {
+                            "🔒 لا يمكن تعديل عنوان الخادم أثناء اقتران الجهاز (يتطلب إلغاء الاقتران بكلمة مرور ولي الأمر)"
+                        } else {
+                            "محاكي أندرويد: http://10.0.2.2:8000/\nجهاز حقيقي: عنوان الـ IP المحلي لجهازك"
+                        },
                         fontSize = 11.sp,
-                        color = AliceBlue600,
+                        color = if (isPaired) WarningOrange else AliceBlue600,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                     OutlinedTextField(
                         value = serverUrl,
                         onValueChange = {
-                            serverUrl = it
-                            sessionManager.baseUrl = it
+                            if (!isPaired) {
+                                serverUrl = it
+                                sessionManager.baseUrl = it
+                            }
                         },
+                        enabled = !isPaired,
+                        readOnly = isPaired,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
@@ -524,5 +588,48 @@ fun ChildAppHomeScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Checks whether MonitoringAccessibilityService is enabled in Android system settings.
+ */
+private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    return try {
+        val enabledServices = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val serviceName = MonitoringAccessibilityService::class.java.canonicalName ?: return false
+        enabledServices.contains("${context.packageName}/$serviceName") ||
+            enabledServices.contains(serviceName)
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/**
+ * Checks whether PACKAGE_USAGE_STATS permission has been granted in Android Usage Access settings.
+ */
+private fun isUsageStatsPermissionGranted(context: Context): Boolean {
+    return try {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
+        }
+        mode == AppOpsManager.MODE_ALLOWED
+    } catch (_: Exception) {
+        false
     }
 }

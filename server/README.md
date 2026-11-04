@@ -6,8 +6,8 @@
 [![Alembic](https://img.shields.io/badge/Alembic-Migrations-orange.svg)](https://alembic.sqlalchemy.org/)
 [![Redis](https://img.shields.io/badge/Redis-Cache-DC382D.svg)](https://redis.io/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-CPU_Optimized-EE4C2C.svg)](https://pytorch.org/)
-[![Meta WhatsApp API](https://img.shields.io/badge/WhatsApp-Cloud_API_v21.0-25D366.svg)](https://developers.facebook.com/)
-[![Tests](https://img.shields.io/badge/Pytest-39%2F39_Passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Notifications](https://img.shields.io/badge/Notifications-FCM_Web_Push-0B518E.svg)](https://firebase.google.com/docs/cloud-messaging)
+[![Tests](https://img.shields.io/badge/Pytest-40%2F40_Passed-brightgreen.svg)](https://docs.pytest.org/)
 
 **Safe Kids Guard API** is an intelligent parental-control backend built with **FastAPI**, designed to protect children from digital threats and harmful content in Arabic digital environments. It serves as the core intelligence hub coordinating the three-tier system (Android child accessibility service + Parent web dashboard + AI moderation core).
 
@@ -52,12 +52,11 @@
 * 24-hour TTL drastically reduces inference load on Transformer models, enabling sub-millisecond responses for repeated queries.
 * Graceful fallback: the system seamlessly continues running in-memory if Redis is offline.
 
-### 3. Multi-Channel Alert Dispatch
-* **Primary Channel (Meta WhatsApp Cloud API v21.0):**
-  * Real-time official template notifications delivered directly to parents upon detecting blocked content.
-  * Automatic normalization of Saudi phone numbers to international E.164 format (`966XXXXXXXXX`).
-* **Secondary Channel (FCM Web Push):**
-  * Direct browser push notifications when WhatsApp delivery is unavailable.
+### 3. Real-Time Alert Dispatch
+* **Primary Channel (FCM Web Push & Instant Browser Alerts):**
+  * Real-time security push notifications delivered directly to the parent's browser/PWA upon detecting blocked content.
+* **Emergency Contact & Phone Normalization:**
+  * Automatic normalization of international (E.164) and Saudi phone numbers (`966XXXXXXXXX`).
 
 ### 4. Granular Parental Policies & Device Control
 * Per-child configurable AI sensitivity threshold (50% to 95%).
@@ -128,10 +127,10 @@ server/
 │   │   ├── classifier.py        # Dual ensemble classifier and threat rules
 │   │   ├── model.py             # HuggingFace model loader (Lazy Singleton)
 │   │   └── preprocessing.py     # Diacritics, Tatweel, Arabizi, and HTML cleaning
-│   ├── alerts/                  # Notification and alert dispatch services
-│   │   ├── router.py            # GET/PUT /notifications/preferences, test-whatsapp
-│   │   ├── schemas.py           # Notification settings schemas
-│   │   └── whatsapp.py          # Meta WhatsApp Cloud API integration
+│  ├── alerts/                  # Notification and alert dispatch services
+│  │   ├── notifications.py     # FCM Web Push & browser alert dispatcher
+│  │   ├── router.py            # GET/PUT /notifications/preferences, /test-notification
+│  │   └── schemas.py           # Notification settings schemas
 │   ├── auth/                    # Authentication, device pairing & RBAC
 │   │   ├── models.py            # User, Family, FamilyMember, NotificationPreferences
 │   │   ├── router.py            # /auth/register, /login, /refresh, /children, /me
@@ -165,12 +164,12 @@ server/
 ├── alembic/                     # Database schema migration files
 │   ├── versions/                # Ordered revision migration scripts
 │   └── env.py                   # Alembic environment and model metadata registry
-├── tests/                       # Comprehensive automated test suite (39 tests)
+├── tests/                       # Comprehensive automated test suite (40 tests)
 │   ├── conftest.py              # Test harness and in-memory database isolation
 │   ├── test_activity.py         # Activity logging and policy exception tests
 │   ├── test_auth.py             # Registration, login, rate limiting, and PIN pairing tests
 │   ├── test_classification.py   # Classification accuracy and alert trigger tests
-│   ├── test_notifications.py    # Notification preferences and WhatsApp tests
+│   ├── test_notifications.py    # Notification preferences and push alert tests
 │   ├── test_policies.py         # Policy updates and authorization tests
 │   ├── test_preprocessing.py    # Arabic normalization and Arabizi tests
 │   ├── test_reports.py          # Summary analytics and binary PDF tests
@@ -310,11 +309,11 @@ The server includes an automated test suite executed against isolated in-memory 
 python -m pytest tests/ -v
 ```
 
-### Test Suite Summary (39 / 39 Tests Passing, 100%):
-* `tests/test_auth.py` (10 tests): User registration, password verification, JWT issuance and refresh, Saudi phone formatting, and SlowAPI rate limiting.
+### Test Suite Summary (40 / 40 Tests Passing, 100%):
+* `tests/test_auth.py` (11 tests): User registration, password verification, JWT issuance and refresh, international E.164 & Saudi phone formatting, and SlowAPI rate limiting.
 * `tests/test_preprocessing.py` (6 tests): Arabic cleaning, HTML tag stripping, Tashkeel/Tatweel removal, Arabizi transliteration, and repetition reduction.
 * `tests/test_classification.py` (6 tests): Classification accuracy across five categories and automated alert triggering.
-* `tests/test_notifications.py` (3 tests): Notification preferences retrieval, updates, and simulated WhatsApp delivery.
+* `tests/test_notifications.py` (3 tests): Notification preferences retrieval, updates, and instant test notification delivery.
 * `tests/test_policies.py` (2 tests): Policy fetching, sensitivity updates, and unauthorized access prevention.
 * `tests/test_activity.py` (1 test): Activity logging and parental exception handling.
 * `tests/test_reports.py` (1 test): Analytics data aggregation and valid binary Arabic PDF export (`%PDF-`).
@@ -348,9 +347,9 @@ python -m pytest tests/ -v
 ### 3. Notification Preferences (`/notifications`)
 | Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `GET` | `/notifications/preferences` | Parent / Admin | Retrieve alert channel preferences (WhatsApp, Web Push) |
-| `PUT` | `/notifications/preferences` | Parent / Admin | Update recipient phone number and toggle channels |
-| `POST` | `/notifications/test-whatsapp` | Parent / Admin | Send immediate test WhatsApp alert to verify delivery |
+| `GET` | `/notifications/preferences` | Parent / Admin | Retrieve alert channel preferences (Web Push & Emergency Phone) |
+| `PUT` | `/notifications/preferences` | Parent / Admin | Update emergency phone number and toggle notification channels |
+| `POST` | `/notifications/test-notification` | Parent / Admin | Send immediate test security push notification |
 
 ### 4. Parental Protection Policies (`/policies`)
 | Method | Endpoint | Protection | Description |
