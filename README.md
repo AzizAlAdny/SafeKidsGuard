@@ -220,5 +220,6 @@ All system modules are backed by automated tests covering functionality, edge ca
 * 📘 [Backend & AI Engine Guide (Server README)](server/README.md)
 * 💻 [Parent Dashboard Guide (Dashboard README)](client/Dashboard/README.md)
 * 📱 [Android Child Monitoring Client Guide (Android App README)](client/child_monitoring_app/README.md)
+* 🧪 [Complete Real-World Testing Guide (Phone, Server & Dashboard)](SYSTEM_TESTING_GUIDE.md)
 
 ---
