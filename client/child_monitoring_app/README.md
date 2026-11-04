@@ -5,6 +5,7 @@
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean_%2F_MVVM_%2B_Hilt-orange.svg)](https://developer.android.com/training/dependency-injection/hilt-android)
 [![Networking](https://img.shields.io/badge/Networking-Retrofit_2_%2B_OkHttp-blue.svg)](https://square.github.io/retrofit/)
+[![Android Tests](https://img.shields.io/badge/JUnit_Tests-6%2F6_Passed_(100%25)-brightgreen.svg)](app/src/test/)
 [![University](https://img.shields.io/badge/University_of_Jeddah-Graduation_Project-07365f.svg)](https://www.uj.edu.sa/)
 
 **Safe Kids Guard Child Monitoring App** is a native Android application installed on children's devices to serve as an intelligent, non-intrusive safety guard. It continuously inspects on-screen textual content in real time to protect minors from cyberbullying, adult/sexual content, violence, and hate speech.
@@ -28,18 +29,18 @@ The client acts as the edge monitoring component of the University of Jeddah Saf
 ## 🚀 Technical Highlights & Capabilities
 
 * **Intelligent Accessibility Engine (`MonitoringAccessibilityService`):**
-  * Monitors on-screen UI changes across browsers and apps (`TYPE_WINDOW_CONTENT_CHANGED` and `TYPE_VIEW_TEXT_CHANGED`).
+  * Monitors on-screen UI changes across browsers and apps (`TYPE_WINDOW_CONTENT_CHANGED`, `TYPE_WINDOW_STATE_CHANGED`, and `TYPE_VIEW_TEXT_CHANGED`).
   * Performs recursive traversal of the accessibility node hierarchy.
-  * Employs a 2-second debounce and deduplication buffer to eliminate battery drain.
+  * Employs a 1.5-second debounce (`1500ms`) and deduplication buffer to eliminate battery drain.
 * **Privacy by Design:**
   * Password and secure credential fields are skipped automatically (`node.isPassword == true`).
   * Personal browsing history is never stored locally or transmitted in full; only bounded snippets of intercepted threats are processed.
 * **Low-Latency Edge Mediation:**
   * Offloads classification requests to the dual-model AI backend (**AraBERT v2 + CAMeLBERT**).
-  * Executes fast-path local policy checks (blocked packages, bedtimes, blacklisted URLs) with immediate remediation.
-  * Dismisses harmful content instantly using `GLOBAL_ACTION_HOME`.
-* **Periodic Policy Synchronization:**
-  * Periodically polls `GET /policies/{child_id}` to keep local blocking rules up to date.
+  * Executes fast-path local policy checks (`PolicyEvaluator.isAppBlocked` across exact packages, regional variants like TikTok, and custom keywords; `PolicyEvaluator.isUrlBlacklisted` with normalized domain stripping for `https://`, `www.`, `m.`, and paths; plus bedtimes and daily screen time) with immediate remediation.
+  * Dismisses harmful content or blocked apps instantly using `GLOBAL_ACTION_HOME` and displays an interactive Arabic block & appeal banner.
+* **Live Policy Synchronization:**
+  * Polls `GET /policies/{child_id}` every 10 seconds (`POLICY_SYNC_INTERVAL_MS = 10_000L`) and immediately re-evaluates the active foreground window (`enforceCurrentForegroundWindow()`) so parent policy changes take effect within seconds.
 * **Persistent Service Lifecycle (`BootReceiver`):**
   * Re-arms monitoring services on device reboot (`BOOT_COMPLETED`).
 * **Material 3 Jetpack Compose Interface:**
@@ -119,9 +120,12 @@ client/child_monitoring_app/
 │               └── xml/                 # Accessibility service capabilities descriptor
 │       └── test/
 │           └── java/sa/safekids/guard/service/
-│               └── PolicyEvaluatorTest.kt # JUnit 4 unit test suite (5/5 passing)
+│               └── PolicyEvaluatorTest.kt # JUnit 4 unit test suite (6/6 passing)
 ├── gradle/
-│   └── libs.versions.toml         # Gradle version catalog
+│   ├── libs.versions.toml         # Gradle version catalog
+│   └── wrapper/                   # Official Gradle 8.13 wrapper jar & properties
+├── gradlew                        # Unix/macOS/CI Gradle wrapper script
+├── gradlew.bat                    # Windows Gradle wrapper script
 ├── build.gradle.kts               # Root project build script
 ├── gradle.properties              # JVM and build performance settings
 └── settings.gradle.kts            # Repository and module mappings
@@ -142,18 +146,18 @@ client/child_monitoring_app/
 
 ## ⚙️ Backend API Configuration
 
-Set the backend server URL in the application's network configuration:
+You can configure the backend server URL either **directly in the app UI** (by tapping the **`⚙️ Server URL`** button in the top-left corner of the pairing screen) or in `SessionManager.kt`:
 
 ### 1. Android Emulator (Local Host)
 The Android Emulator maps the host machine's `localhost` to `10.0.2.2`:
 ```kotlin
-const val BASE_URL = "http://10.0.2.2:8000/"
+const val DEFAULT_BASE_URL = "http://10.0.2.2:8000/"
 ```
 
 ### 2. Physical Android Device (Local Wi-Fi Network)
-Use the local IP address of your host machine running the FastAPI server:
+Use the local IPv4 address of your host machine running the FastAPI server (or set it via the in-app **Server URL** dialog):
 ```kotlin
-const val BASE_URL = "http://192.168.1.50:8000/"
+const val DEFAULT_BASE_URL = "http://192.168.1.102:8000/"
 ```
 
 ### 3. Production Deployment (Cloud Run / VPS)

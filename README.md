@@ -9,7 +9,7 @@
 [![PyTorch](https://img.shields.io/badge/AI_Engine-PyTorch_%2B_Transformers-EE4C2C.svg)](server/)
 [![Web Push](https://img.shields.io/badge/Notifications-FCM_Web_Push-0B518E.svg)](server/)
 [![Tests](https://img.shields.io/badge/Pytest-40%2F40_Passed_(100%25)-brightgreen.svg)](server/)
-[![Android Tests](https://img.shields.io/badge/Android_JUnit-5%2F5_Passed_(100%25)-brightgreen.svg)](client/child_monitoring_app/)
+[![Android Tests](https://img.shields.io/badge/Android_JUnit-6%2F6_Passed_(100%25)-brightgreen.svg)](client/child_monitoring_app/)
 [![Build](https://img.shields.io/badge/Next.js_Build-18_Routes_Passed-brightgreen.svg)](client/Dashboard/)
 
 ---
@@ -20,9 +20,9 @@ With the rapid adoption of smartphones and social media among children in the Ar
 
 **Safe Kids Guard** addresses this challenge through an integrated, three-tier architecture:
 
-1. **Android Child Monitoring App (`client/child_monitoring_app/`):** Observes on-screen text in real time using Android's `AccessibilityService` with a 1.5-second debounce and deduplication window to prevent battery drain. It protects privacy by ignoring password fields, bounds payloads safely (`<= 4,500` chars), rotates JWT tokens automatically on expiration, logs local policy violations (`POST /activity`), and takes immediate protective action (returning to home via `GLOBAL_ACTION_HOME` with a block & appeal overlay) upon detecting harmful content.
+1. **Android Child Monitoring App (`client/child_monitoring_app/`):** Observes on-screen text in real time using Android's `AccessibilityService` with a 1.5-second debounce and deduplication window to prevent battery drain, plus a 10-second live policy synchronization loop. It protects privacy by ignoring password fields, bounds payloads safely (`<= 4,500` chars), normalizes URL domains and regional app package aliases, rotates JWT tokens automatically on expiration, logs local policy violations (`POST /activity`), and takes immediate protective action (returning to home via `GLOBAL_ACTION_HOME` with a block & appeal overlay) upon detecting harmful content or blocked apps/URLs.
 2. **AI & Mediation Backend (`server/`):** Processes Arabic text through an advanced preprocessing pipeline and evaluates it with a dual-tier NLP architecture (**AraBERT v2 + CAMeLBERT**) executed off the event loop via `asyncio.to_thread`. It features **SlowAPI** rate limiting and flexible database support (**SQLite** by default with zero configuration, **XAMPP MySQL**, or **PostgreSQL**).
-3. **Parent & Administrator Dashboard (`client/Dashboard/`):** A responsive Progressive Web App (PWA) built with **Next.js 16**, **React 19**, and **Tailwind CSS v4** using the Arabic **Cairo** typography. Connected to live backend APIs for device pairing, real-time activity logs, threat alerts, and Arabic-formatted PDF reports.
+3. **Parent & Administrator Dashboard (`client/Dashboard/`):** A responsive Progressive Web App (PWA) built with **Next.js 16**, **React 19**, and **Tailwind CSS v4** using the Arabic **Cairo** typography and standardized English numerals (`0–9`) for dates and times. Connected to live backend APIs (with automatic `localhost` and LAN IP resolution) for device pairing, real-time 4-second browser push notifications & Web Audio chimes, live activity logs, instant-save protection policies, and 100% Arabic RTL executive PDF reports.
 
 ---
 
@@ -83,7 +83,7 @@ SafeKidsGuard/
 │   │
 │   └── child_monitoring_app/   # Native Android protection client (Kotlin + Jetpack Compose M3)
 │       ├── app/src/main/       # Application code, AccessibilityService, PolicyEvaluator, EncryptedSharedPreferences, Retrofit
-│       ├── app/src/test/       # JUnit 4 automated unit test suite (5/5 passing tests, 100%)
+│       ├── app/src/test/       # JUnit 4 automated unit test suite (6/6 passing tests, 100%)
 │       └── README.md           # 📄 Android app documentation, permissions & pairing flow
 │
 ├── docs/                       # Project documentation, academic requirements, and system diagrams
@@ -208,10 +208,12 @@ All system modules are backed by automated tests covering functionality, edge ca
 * **18 distinct routes** verified across `(parent)` and `(admin)` layouts with server-side RBAC protection via [src/middleware.ts](client/Dashboard/src/middleware.ts).
 
 ### 3. Android Child Client Automated Suite (`client/child_monitoring_app/app/src/test`)
-* **5 out of 5 JUnit tests passing (100%)** in `PolicyEvaluatorTest.kt`:
+* **6 out of 6 JUnit tests passing (100%)** in `PolicyEvaluatorTest.kt`:
   * Screen text payload truncation (`<= 4,500` chars) under FastAPI's `max_length=5000` limit.
   * Cross-midnight (`21:00–06:00`) and same-day (`13:00–15:30`) bedtime window evaluation.
-  * Case-insensitive blacklisted domain matching and 6-digit pairing PIN sanitization/validation.
+  * Case-insensitive blacklisted domain matching with `https://`, `www.`, `m.`, and path normalization (`normalizeDomain`).
+  * Blocked application matching across exact package names, regional package variants (e.g., TikTok `com.zhiliaoapp.musically` / `com.ss.android.ugc.trill`), and custom app keywords (`isAppBlocked`).
+  * 6-digit pairing PIN sanitization and validation.
 
 ---
 

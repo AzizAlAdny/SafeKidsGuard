@@ -71,7 +71,7 @@
 
 ### 6. Analytics & Arabic PDF Reports
 * Computes real-time Digital Safety Scores and threat distribution ratios.
-* Generates downloadable executive PDF reports using `ReportLab` with complete Arabic bidirectional (BiDi) shaping and custom TrueType fonts.
+* Generates downloadable 100% Arabic RTL executive PDF reports using `ReportLab`, `arabic-reshaper`, and `python-bidi` with custom TrueType fonts and optional Base64 JSON transport (`?format=base64`) to prevent browser download-manager interception.
 
 ---
 
@@ -90,7 +90,7 @@
 │                                                                             │
 │  ┌──────────────────────┐   ┌───────────────────────┐   ┌────────────────┐ │
 │  │   Auth & Security    │   │ Content Filter Service│   │ Alert Service  │ │
-│  │   JWT + Bcrypt       │──▶│ Policies + Activity   │──▶│ Meta WhatsApp  │ │
+│  │   JWT + Bcrypt       │──▶│ Policies + Activity   │──▶│ Browser Push   │ │
 │  │   Role Authorization │   │ Decision Engine       │   │ FCM Web Push   │ │
 │  └──────────────────────┘   └───────────┬───────────┘   └────────────────┘ │
 │                                         │                                   │
@@ -240,11 +240,10 @@ python create_admin.py
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token lifespan in minutes |
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `7` | Refresh token lifespan in days |
-| `WA_PHONE_NUMBER_ID` | `""` | WhatsApp Phone Number ID from Meta Developer Console |
-| `WA_ACCESS_TOKEN` | `""` | Permanent System User Token for Meta Cloud API |
+| `FIREBASE_CREDENTIALS_PATH` | `""` | Optional path to Firebase Admin SDK JSON credentials for FCM Web Push |
 | `AI_CONFIDENCE_THRESHOLD` | `0.75` | Minimum AI probability required to trigger automated blocking |
 | `APP_ENV` | `development` | Environment mode (`development` enables Swagger at `/docs`) |
-| `APP_CORS_ORIGINS` | `http://localhost:3000,...` | Whitelisted origins allowed for CORS |
+| `APP_CORS_ORIGINS` | `http://localhost:3000,http://192.168.1.102:3000,...` | Whitelisted origins allowed for CORS |
 
 ---
 
@@ -361,14 +360,14 @@ python -m pytest tests/ -v
 | Method | Endpoint | Protection | Description |
 |---|---|---|---|
 | `GET` | `/activity` | Parent / Admin | View real-time child activity log with pagination and filters |
-| `POST` | `/activity` | Bearer Token + Child Ownership | Ingest inspected screen text event from child device |
+| `POST` | `/activity` | Bearer Token + Child Ownership | Ingest inspected screen text or policy block event (`BLOCKED_APP`, `BLACKLISTED_URL`, `BEDTIME`, `SCREEN_TIME`) and generate parent alert if blocked |
 | `POST` | `/activity/batch` | Bearer Token + Child Ownership | Ingest a batch of activity events in a single transaction |
 
 ### 6. Analytics & Reports (`/reports`)
 | Method | Endpoint | Protection | Description |
 |---|---|---|---|
 | `GET` | `/reports/summary` | Parent / Admin | Aggregate digital safety score and threat distribution statistics |
-| `GET` | `/reports/export-pdf` | Parent / Admin | Generate and download executive Arabic PDF report (BiDi-formatted) |
+| `GET` | `/reports/export-pdf` | Parent / Admin | Generate and download 100% Arabic RTL executive PDF report (supports optional `?format=base64`) |
 
 ### 7. Administration & Governance (`/admin`)
 | Method | Endpoint | Protection | Description |

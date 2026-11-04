@@ -39,9 +39,9 @@ The dashboard includes **18 verified routes** covering both the Parent portal an
 | `/alerts` | **Threat & Alerts Feed** | Filterable table of intercepted content, confidence scores, and context snippets. |
 | `/children` | **Child Account Manager** | Add children, issue official 6-digit pairing PINs, and monitor pairing status. |
 | `/activity` | **Live Activity Log** | Real-time audit log of inspected screen text (safe and blocked) and originating apps. |
-| `/policies` | **Protection Policies** | Preset templates (Child/Teen), category toggles, AI sensitivity slider, app and URL blacklists. |
-| `/reports` | **Analytics & PDF Export** | Interactive safety charts (Recharts) and on-demand Arabic BiDi PDF report generator. |
-| `/notifications` | **Alert Settings** | Manage Web Push security notifications, sound alarms, and instant test verification alerts. |
+| `/policies` | **Protection Policies** | Preset templates (Child/Teen), category toggles, AI sensitivity slider, 11 popular app quick-toggles + custom app/package blocker, URL blacklist with domain normalization, and instant auto-save. |
+| `/reports` | **Analytics & PDF Export** | Interactive safety AreaChart, RTL threat distribution breakdown, and on-demand 100% Arabic RTL Executive PDF report generator (`format=base64` transport). |
+| `/notifications` | **Alert Settings** | Manage Web Push security notifications, interactive browser permission test badge, 4-second real-time background alert watcher with Web Audio chimes, and instant verification alerts. |
 | `/admin` | **Admin Command Center** | Macro-level system metrics: active users, total scans, and blocked threats (`FR13`). |
 | `/admin/users` | **User Management** | Search, filter, activate/deactivate, and delete accounts (`FR10, UC-A1`). |
 | `/admin/models` | **AI Model Telemetry** | Status monitor for `AraBERTv2` & `CAMeLBERT`, category counts, and model reloader (`FR11, UC-A2`). |
@@ -79,13 +79,13 @@ client/Dashboard/
 │   │   │   ├── login/page.tsx     # Role-aware login view
 │   │   │   └── register/page.tsx  # Registration with phone validation
 │   │   ├── (parent)/              # Parent portal with persistent sidebar & RTL layout
-│   │   │   ├── layout.tsx         # Sidebar, navigation, and RTL direction wrapper
+│   │   │   ├── layout.tsx         # Sidebar, navigation, 4s real-time alert watcher & popup stack
 │   │   │   ├── dashboard/page.tsx # Executive overview cards
 │   │   │   ├── alerts/page.tsx    # Threat alerts feed
 │   │   │   ├── children/page.tsx  # Child account & PIN pairing manager
 │   │   │   ├── activity/page.tsx  # Real-time activity audit log
-│   │   │   ├── policies/page.tsx  # Safety policies & sensitivity controls
-│   │   │   ├── reports/page.tsx   # Visual charts & PDF export button
+│   │   │   ├── policies/page.tsx  # Safety policies, app/URL blacklists & instant auto-save
+│   │   │   ├── reports/page.tsx   # Visual charts, RTL threat progress list & Arabic PDF export
 │   │   │   └── notifications/page.tsx # Push & in-app security alert settings
 │   │   ├── (admin)/               # Administrator portal
 │   │   │   ├── layout.tsx         # Admin sidebar and header layout
@@ -97,13 +97,16 @@ client/Dashboard/
 │   │   ├── globals.css            # Cairo typography imports and Tailwind v4 theme
 │   │   ├── layout.tsx             # Root document layout with dir="rtl" and lang="ar"
 │   │   └── page.tsx               # Root entrypoint redirector
+│   ├── components/
+│   │   └── ConfirmModal.tsx       # Accessible RTL confirmation dialog component
 │   ├── middleware.ts              # Edge middleware enforcing role-based route access
 │   └── lib/
-│       ├── api.ts                 # Axios instance with automatic JWT refresh interceptor
+│       ├── api.ts                 # Axios instance with dynamic LAN/localhost URL resolution & JWT refresh
 │       ├── auth-store.ts          # Zustand authentication store with cookie synchronization
+│       ├── browser-notifications.ts # Native browser Notification API & Web Audio chime engine
 │       └── utils.ts               # Tailwind class merge utilities
 ├── Dockerfile                     # Standalone production container definition
-├── next.config.ts                 # Next.js and Turbopack compiler configuration
+├── next.config.ts                 # Next.js, Turbopack, and allowedDevOrigins configuration
 ├── package.json                   # Dependency manifests and build scripts
 └── tsconfig.json                  # TypeScript compiler options
 ```
@@ -126,7 +129,7 @@ npm install
 ```
 
 ### 2. Configure Environment Variables (`.env.local`)
-Create `.env.local` in the dashboard folder:
+Create `.env.local` in the dashboard folder (note: `src/lib/api.ts` also automatically resolves `http://${window.location.hostname}:8000` in the browser so both `http://localhost:3000` and LAN access via `http://192.168.1.102:3000` work seamlessly out of the box):
 ```env
 # Backend API Base URL
 NEXT_PUBLIC_API_URL=http://localhost:8000
