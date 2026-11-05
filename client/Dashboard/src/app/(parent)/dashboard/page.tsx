@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { api } from "@/lib/api";
+import { parseUtcDate } from "@/lib/utils";
 
 interface ChildItem {
   id: string;
@@ -53,9 +54,9 @@ const CATEGORY_MAP: Record<string, { label: string; color: string; bgColor: stri
 
 function formatRelativeTime(dateStr: string): string {
   try {
-    const d = new Date(dateStr);
+    const d = parseUtcDate(dateStr);
     const now = new Date();
-    const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+    const diffSec = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
 
     if (diffSec < 60) return "الآن";
     if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;

@@ -2,8 +2,8 @@
 Pydantic schemas for Policy requests and responses.
 """
 import uuid
-from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from datetime import UTC, datetime
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PolicyBase(BaseModel):
@@ -45,3 +45,10 @@ class PolicyResponse(PolicyBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("updated_at", mode="after")
+    @classmethod
+    def ensure_utc_timezone(cls, v: datetime) -> datetime:
+        if v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v

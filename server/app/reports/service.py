@@ -116,14 +116,19 @@ async def get_report_summary(
         for cat, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True)
     ]
 
-    # Daily breakdown
+    # Daily breakdown (aligned to local server timezone)
+    local_tz = datetime.now().astimezone().tzinfo
+    now_local = now.astimezone(local_tz)
+    start_local = start_date.astimezone(local_tz)
+
     daily_stats: dict[str, dict[str, int]] = {}
     for i in range(days):
-        d = (start_date + timedelta(days=i + 1)).strftime("%Y-%m-%d")
+        d = (start_local + timedelta(days=i + 1)).strftime("%Y-%m-%d")
         daily_stats[d] = {"total": 0, "blocked": 0, "allowed": 0}
 
     for e in events:
-        d = e.timestamp.strftime("%Y-%m-%d")
+        ev_ts = e.timestamp if e.timestamp.tzinfo is not None else e.timestamp.replace(tzinfo=UTC)
+        d = ev_ts.astimezone(local_tz).strftime("%Y-%m-%d")
         if d in daily_stats:
             daily_stats[d]["total"] += 1
             if e.verdict == "BLOCKED":
@@ -151,8 +156,8 @@ async def get_report_summary(
     return ReportSummaryResponse(
         child_id=str(child_id) if child_id else None,
         child_name=child_name,
-        start_date=start_date.strftime("%Y-%m-%d"),
-        end_date=now.strftime("%Y-%m-%d"),
+        start_date=start_local.strftime("%Y-%m-%d"),
+        end_date=now_local.strftime("%Y-%m-%d"),
         total_events=total,
         blocked_events=blocked,
         allowed_events=allowed,
@@ -224,7 +229,9 @@ def generate_pdf_bytes(summary: ReportSummaryResponse) -> bytes:
     # ── جدول بيانات التقرير الأساسية (RTL: القيمة يساراً والبيان يميناً) ──
     target_child_label = _shape_arabic_text(summary.child_name or "جميع الأطفال المرتبطين بالحساب")
     period_str = _shape_arabic_text(f"من {summary.start_date} إلى {summary.end_date}")
-    issued_at_str = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+    now_local = datetime.now()
+    period_ar = "مساءً" if now_local.hour >= 12 else "صباحاً"
+    issued_at_str = _shape_arabic_text(f"{now_local.strftime('%Y-%m-%d - %I:%M')} {period_ar}")
 
     info_data = [
         [period_str, _shape_arabic_text("الفترة الزمنية للتقرير")],

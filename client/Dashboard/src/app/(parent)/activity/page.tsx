@@ -18,7 +18,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { normalizeArabicText } from "@/lib/utils";
+import { formatLocalDateTime, normalizeArabicText } from "@/lib/utils";
 
 interface ActivityItem {
   id: string;
@@ -320,15 +320,8 @@ export default function ActivityPage() {
 
                   return (
                     <tr key={act.id} className="hover:bg-[#f8fcfd] transition">
-                      <td dir="ltr" className="py-3.5 px-4 text-[#387b94] font-mono text-[11px] whitespace-nowrap text-right">
-                        {new Date(act.timestamp).toLocaleString("en-GB", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
+                      <td dir="rtl" className="py-3.5 px-4 text-[#387b94] font-mono text-[11px] whitespace-nowrap text-right">
+                        {formatLocalDateTime(act.timestamp)}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-[#07365f] whitespace-nowrap">
                         {act.child_name || "الطفل"}

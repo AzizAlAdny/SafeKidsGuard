@@ -81,3 +81,40 @@ export function normalizeArabicText(str: string | null | undefined): string {
     .trim();
 }
 
+/**
+ * Safely parse an ISO-8601 date string from the backend.
+ * If SQLite returned a naive UTC string without 'Z' or a timezone offset,
+ * appends 'Z' so JavaScript converts it from UTC to the user's local timezone (e.g., +03:00).
+ */
+export function parseUtcDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const trimmed = dateStr.trim();
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed.replace(" ", "T")}Z`;
+  return new Date(normalized);
+}
+
+/**
+ * Format a UTC timestamp into local date and 12-hour time with English digits (0-9)
+ * and Arabic period marker (صباحاً / مساءً), e.g. "05/11/2026 - 06:29 مساءً".
+ */
+export function formatLocalDateTime(dateStr: string): string {
+  try {
+    const d = parseUtcDate(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const datePart = d.toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const hours24 = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const periodAr = hours24 >= 12 ? "مساءً" : "صباحاً";
+    const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
+    return `${datePart} - ${hours12}:${minutes} ${periodAr}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+

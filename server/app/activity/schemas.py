@@ -2,8 +2,8 @@
 Pydantic schemas for Activity Events.
 """
 import uuid
-from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from datetime import UTC, datetime
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ActivityEventCreate(BaseModel):
@@ -27,6 +27,13 @@ class ActivityEventResponse(BaseModel):
     confidence: float
     verdict: str
     timestamp: datetime
+
+    @field_validator("timestamp", mode="after")
+    @classmethod
+    def ensure_utc_timezone(cls, v: datetime) -> datetime:
+        if v and v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v
 
     model_config = ConfigDict(from_attributes=True)
 

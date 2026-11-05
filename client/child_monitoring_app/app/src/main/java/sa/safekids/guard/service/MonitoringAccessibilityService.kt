@@ -1,9 +1,15 @@
 package sa.safekids.guard.service
 
 import android.accessibilityservice.AccessibilityService
-import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -21,17 +27,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import sa.safekids.guard.data.SessionManager
+import sa.safekids.guard.network.ActivityBatchRequestDto
 import sa.safekids.guard.network.ActivityEventDto
 import sa.safekids.guard.network.ApiClient
+import sa.safekids.guard.network.ApiService
 import sa.safekids.guard.network.ClassificationRequest
 import sa.safekids.guard.ui.MainActivity
 import java.io.IOException
 import java.util.Calendar
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * MonitoringAccessibilityService silently inspects on-screen Arabic text in real time,
- * periodically syncs parental policies, and enforces blocked apps, blacklisted URLs,
+ * periodically syncs parental policies with adaptive backoff and instant network recovery,
+ * queues offline local violations, and enforces blocked apps, blacklisted URLs,
  * daily screen-time limits, and bedtime windows even when offline.
  */
 class MonitoringAccessibilityService : AccessibilityService() {
@@ -39,7 +49,9 @@ class MonitoringAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "SafeKidsGuard_Monitor"
         private const val DEBOUNCE_DELAY_MS = 1500L // 1.5-second debouncing window
-        private const val POLICY_SYNC_INTERVAL_MS = 10_000L // 10-second live policy sync
+        private const val POLICY_SYNC_INTERVAL_MS = 10_000L // 10-second live policy sync when online
+        private const val MAX_OFFLINE_BACKOFF_MS = 60_000L // Max 60s backoff when server is shut down
+        private const val WATCHDOG_RECONNECT_COOLDOWN_MS = 10_000L // Min interval for event-triggered reconnect
         private const val LOCAL_LOG_COOLDOWN_MS = 15_000L // 15-second cooldown for local block activity logs
 
         // Packages to ignore to prevent loops and unnecessary processing (Launchers, System UI, Keyboards, Settings)
@@ -68,11 +80,43 @@ class MonitoringAccessibilityService : AccessibilityService() {
     private var policySyncJob: Job? = null
     private var lastInspectedTextHash: Int = 0
     private var lastInspectionTime: Long = 0L
+    private var lastSyncAttemptElapsedMs: Long = 0L
+    private var consecutiveSyncFailures: Int = 0
+    private val isSyncInProgress = AtomicBoolean(false)
     private var serviceStartElapsedMs: Long = SystemClock.elapsedRealtime()
     private val localViolationTimestamps = ConcurrentHashMap<String, Long>()
 
     private lateinit var sessionManager: SessionManager
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallbackRegistered = false
+    private var receiverRegistered = false
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            Log.i(TAG, "Network available — triggering immediate server reconnect.")
+            triggerImmediateReconnect()
+        }
+
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                !sessionManager.isServerReachable
+            ) {
+                triggerImmediateReconnect()
+            }
+        }
+    }
+
+    private val reconnectReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == SessionManager.ACTION_FORCE_RECONNECT) {
+                Log.i(TAG, "Received force reconnect broadcast — syncing now.")
+                consecutiveSyncFailures = 0
+                lastInspectedTextHash = 0
+                triggerImmediateReconnect()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -84,16 +128,80 @@ class MonitoringAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.i(TAG, "Safe Kids Guard Accessibility Service connected and active.")
+        registerConnectivityWatchers()
         startPeriodicPolicySync()
     }
 
+    private fun registerConnectivityWatchers() {
+        if (!networkCallbackRegistered) {
+            try {
+                connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager?.registerNetworkCallback(request, networkCallback)
+                networkCallbackRegistered = true
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not register NetworkCallback: ${e.message}")
+            }
+        }
+
+        if (!receiverRegistered) {
+            try {
+                val filter = IntentFilter(SessionManager.ACTION_FORCE_RECONNECT)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(reconnectReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    @Suppress("UnspecifiedRegisterReceiverFlag")
+                    registerReceiver(reconnectReceiver, filter)
+                }
+                receiverRegistered = true
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not register reconnect receiver: ${e.message}")
+            }
+        }
+    }
+
+    private fun unregisterConnectivityWatchers() {
+        if (networkCallbackRegistered) {
+            try {
+                connectivityManager?.unregisterNetworkCallback(networkCallback)
+            } catch (_: Exception) {
+            }
+            networkCallbackRegistered = false
+        }
+        if (receiverRegistered) {
+            try {
+                unregisterReceiver(reconnectReceiver)
+            } catch (_: Exception) {
+            }
+            receiverRegistered = false
+        }
+    }
+
     private fun startPeriodicPolicySync() {
-        policySyncJob?.cancel()
+        if (policySyncJob?.isActive == true) return
         policySyncJob = serviceScope.launch {
             while (isActive) {
                 syncPolicyFromServer()
-                delay(POLICY_SYNC_INTERVAL_MS)
+                val nextDelayMs = if (consecutiveSyncFailures == 0) {
+                    POLICY_SYNC_INTERVAL_MS
+                } else {
+                    val backoff = 15_000L * (1L shl (consecutiveSyncFailures - 1).coerceAtMost(2))
+                    backoff.coerceAtMost(MAX_OFFLINE_BACKOFF_MS)
+                }
+                delay(nextDelayMs)
             }
+        }
+    }
+
+    private fun triggerImmediateReconnect() {
+        if (policySyncJob?.isActive != true) {
+            startPeriodicPolicySync()
+            return
+        }
+        serviceScope.launch {
+            syncPolicyFromServer()
         }
     }
 
@@ -101,20 +209,74 @@ class MonitoringAccessibilityService : AccessibilityService() {
         if (!sessionManager.isPaired || sessionManager.childId.isBlank() || sessionManager.accessToken.isBlank()) {
             return
         }
+        if (!isSyncInProgress.compareAndSet(false, true)) {
+            return
+        }
+        lastSyncAttemptElapsedMs = SystemClock.elapsedRealtime()
         try {
             val apiService = ApiClient.getApiService(this)
-            val resp = apiService.getPolicy("Bearer ${sessionManager.accessToken}", sessionManager.childId)
+            var resp = apiService.getPolicy("Bearer ${sessionManager.accessToken}", sessionManager.childId)
+
+            // Self-heal if access token expired overnight and OkHttp Authenticator missed rotation during server boot
+            if (resp.code() == 401 && sessionManager.refreshToken.isNotBlank()) {
+                val refreshed = ApiClient.refreshTokenSynchronously(sessionManager, sessionManager.baseUrl)
+                if (refreshed) {
+                    resp = apiService.getPolicy("Bearer ${sessionManager.accessToken}", sessionManager.childId)
+                }
+            }
+
             if (resp.isSuccessful) {
                 resp.body()?.let { policy ->
+                    val wasOffline = !sessionManager.isServerReachable || consecutiveSyncFailures > 0
+                    consecutiveSyncFailures = 0
                     sessionManager.cachePolicy(policy)
-                    Log.d(TAG, "Synchronized child policy from server.")
+                    if (wasOffline) {
+                        lastInspectedTextHash = 0
+                        Log.i(TAG, "Reconnected to FastAPI server and synchronized child policy.")
+                    } else {
+                        Log.d(TAG, "Synchronized child policy from server.")
+                    }
+                    flushOfflineActivityQueue(apiService)
                     mainHandler.post {
                         enforceCurrentForegroundWindow()
                     }
                 }
+            } else if (resp.code() == 401 || resp.code() == 403) {
+                consecutiveSyncFailures++
+                sessionManager.isServerReachable = true
+                sessionManager.isAuthExpired = true
+                Log.w(TAG, "Policy sync unauthorized (${resp.code()}) — session requires re-pairing or refresh.")
+            } else {
+                consecutiveSyncFailures++
+                sessionManager.isServerReachable = false
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Policy sync skipped (offline): ${e.message}")
+            consecutiveSyncFailures++
+            sessionManager.isServerReachable = false
+            Log.w(TAG, "Policy sync skipped (offline, attempt #$consecutiveSyncFailures): ${e.message}")
+        } finally {
+            isSyncInProgress.set(false)
+        }
+    }
+
+    private suspend fun flushOfflineActivityQueue(apiService: ApiService) {
+        if (sessionManager.getOfflineActivityCount() == 0) return
+        val queuedEvents = sessionManager.drainOfflineActivities()
+        if (queuedEvents.isEmpty()) return
+
+        try {
+            val resp = apiService.logActivityBatch(
+                token = "Bearer ${sessionManager.accessToken}",
+                batch = ActivityBatchRequestDto(events = queuedEvents)
+            )
+            if (resp.isSuccessful) {
+                Log.i(TAG, "Flushed ${queuedEvents.size} offline activity event(s) to server.")
+            } else {
+                queuedEvents.forEach { sessionManager.enqueueOfflineActivity(it) }
+            }
+        } catch (e: Exception) {
+            queuedEvents.forEach { sessionManager.enqueueOfflineActivity(it) }
+            Log.w(TAG, "Could not flush offline activity queue yet: ${e.message}")
         }
     }
 
@@ -151,6 +313,14 @@ class MonitoringAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         if (!sessionManager.isPaired || sessionManager.childId.isBlank()) return
+
+        // Watchdog: if the background sync job was suspended by Doze or server was offline > 10s, reconnect on user activity
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (policySyncJob?.isActive != true ||
+            (!sessionManager.isServerReachable && (nowElapsed - lastSyncAttemptElapsedMs) > WATCHDOG_RECONNECT_COOLDOWN_MS)
+        ) {
+            triggerImmediateReconnect()
+        }
 
         val packageName = event.packageName?.toString() ?: ""
         if (packageName.isBlank() || IGNORED_PACKAGES.contains(packageName)) return
@@ -282,12 +452,13 @@ class MonitoringAccessibilityService : AccessibilityService() {
             try {
                 delay(DEBOUNCE_DELAY_MS)
 
-                lastInspectedTextHash = textHash
-                lastInspectionTime = SystemClock.elapsedRealtime()
-
                 // Privacy: never log raw child screen text to logcat (VULN-04 remediation)
                 Log.d(TAG, "[$packageName] Inspecting text payload (${combinedText.length} chars)")
-                classifyAndEnforce(combinedText, packageName)
+                val completedOnline = classifyAndEnforce(combinedText, packageName)
+                if (completedOnline) {
+                    lastInspectedTextHash = textHash
+                    lastInspectionTime = SystemClock.elapsedRealtime()
+                }
             } catch (_: CancellationException) {
                 // Expected when new text arrives before debounce finishes
             } catch (e: Exception) {
@@ -327,6 +498,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
     /**
      * Asynchronously records a local policy intervention (blocked app, URL, bedtime, screen time)
      * to the backend POST /activity endpoint so parents can view it on the dashboard (FR9, FR13).
+     * If the server is offline, queues the violation locally to be flushed automatically on reconnect.
      */
     private fun logLocalViolationToServer(
         category: String,
@@ -344,34 +516,44 @@ class MonitoringAccessibilityService : AccessibilityService() {
         if (now - lastLogged < LOCAL_LOG_COOLDOWN_MS) return
         localViolationTimestamps[dedupKey] = now
 
+        val eventDto = ActivityEventDto(
+            child_id = childId,
+            app_name = packageName,
+            url = url,
+            content_snippet = snippet.take(200),
+            category = category,
+            confidence = 1.0,
+            verdict = "BLOCKED"
+        )
+
         serviceScope.launch {
             try {
                 val apiService = ApiClient.getApiService(this@MonitoringAccessibilityService)
-                apiService.logActivity(
+                val resp = apiService.logActivity(
                     token = "Bearer ${sessionManager.accessToken}",
-                    event = ActivityEventDto(
-                        child_id = childId,
-                        app_name = packageName,
-                        url = url,
-                        content_snippet = snippet.take(200),
-                        category = category,
-                        confidence = 1.0,
-                        verdict = "BLOCKED"
-                    )
+                    event = eventDto
                 )
+                if (resp.isSuccessful) {
+                    sessionManager.markSyncSuccess()
+                } else {
+                    sessionManager.enqueueOfflineActivity(eventDto)
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Deferred local violation log ($category): ${e.message}")
+                sessionManager.isServerReachable = false
+                sessionManager.enqueueOfflineActivity(eventDto)
+                Log.w(TAG, "Queued offline local violation ($category) for later sync: ${e.message}")
             }
         }
     }
 
     /**
      * Sends the text to FastAPI /classification/predict and enforces protective action if blocked.
+     * Returns true if the server responded, or false if the server was unreachable.
      */
-    private suspend fun classifyAndEnforce(text: String, packageName: String) {
+    private suspend fun classifyAndEnforce(text: String, packageName: String): Boolean {
         val childId = sessionManager.childId
         val token = sessionManager.accessToken
-        if (childId.isBlank() || token.isBlank()) return
+        if (childId.isBlank() || token.isBlank()) return false
 
         val apiService = ApiClient.getApiService(this)
         val request = ClassificationRequest(
@@ -380,11 +562,25 @@ class MonitoringAccessibilityService : AccessibilityService() {
             context_app = packageName
         )
 
-        try {
+        return try {
             val authHeader = "Bearer $token"
-            val response = apiService.classifyText(authHeader, request)
+            var response = apiService.classifyText(authHeader, request)
+
+            if (response.code() == 401 && sessionManager.refreshToken.isNotBlank()) {
+                val refreshed = ApiClient.refreshTokenSynchronously(sessionManager, sessionManager.baseUrl)
+                if (refreshed) {
+                    response = apiService.classifyText("Bearer ${sessionManager.accessToken}", request)
+                }
+            }
 
             if (response.isSuccessful) {
+                val wasOffline = !sessionManager.isServerReachable
+                consecutiveSyncFailures = 0
+                sessionManager.markSyncSuccess()
+                if (wasOffline) {
+                    flushOfflineActivityQueue(apiService)
+                }
+
                 val result = response.body()
                 if (result != null && result.is_blocked) {
                     handleHarmfulContentDetected(
@@ -394,13 +590,21 @@ class MonitoringAccessibilityService : AccessibilityService() {
                         alertId = result.alert_id
                     )
                 }
+                true
             } else {
                 Log.w(TAG, "Classification API returned code: ${response.code()}")
+                if (response.code() == 401 || response.code() == 403) {
+                    sessionManager.isAuthExpired = true
+                }
+                false
             }
         } catch (e: IOException) {
+            sessionManager.isServerReachable = false
             Log.w(TAG, "Classification API offline: ${e.message}")
+            false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to classify text: ${e.message}")
+            false
         }
     }
 
@@ -452,6 +656,7 @@ class MonitoringAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterConnectivityWatchers()
         debounceJob?.cancel()
         policySyncJob?.cancel()
         serviceScope.cancel()

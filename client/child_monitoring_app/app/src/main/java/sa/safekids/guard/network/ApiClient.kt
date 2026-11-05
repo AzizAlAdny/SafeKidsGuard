@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import okhttp3.Authenticator
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -20,7 +21,8 @@ import java.util.concurrent.TimeUnit
 /**
  * ApiClient provides a thread-safe singleton Retrofit instance.
  * Redacts Authorization headers, avoids logging sensitive request bodies (NFR4),
- * and automatically rotates expired JWT access tokens via POST /auth/refresh.
+ * always injects the freshest Bearer token, and automatically rotates expired JWT
+ * access tokens via POST /auth/refresh.
  */
 object ApiClient {
 
@@ -31,6 +33,82 @@ object ApiClient {
     private var cachedApiService: ApiService? = null
     private val gson = Gson()
     private val refreshLock = Any()
+
+    /**
+     * Thread-safe synchronous token rotation helper that can be invoked both by OkHttp's
+     * Authenticator (on HTTP 401) and proactively by MonitoringAccessibilityService / MainActivity.
+     */
+    fun refreshTokenSynchronously(sessionManager: SessionManager, baseUrl: String): Boolean {
+        synchronized(refreshLock) {
+            val currentRefreshToken = sessionManager.refreshToken
+            if (currentRefreshToken.isBlank()) {
+                sessionManager.isAuthExpired = true
+                return false
+            }
+
+            try {
+                val refreshUrl = "${if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"}auth/refresh"
+                val jsonPayload = gson.toJson(RefreshTokenRequestDto(refresh_token = currentRefreshToken))
+                val refreshRequest = Request.Builder()
+                    .url(refreshUrl)
+                    .post(jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                    .build()
+
+                val bareClient = OkHttpClient.Builder()
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(8, TimeUnit.SECONDS)
+                    .build()
+
+                bareClient.newCall(refreshRequest).execute().use { refreshResp ->
+                    if (refreshResp.isSuccessful) {
+                        val bodyStr = refreshResp.body?.string()
+                        if (!bodyStr.isNullOrBlank()) {
+                            val tokenDto = gson.fromJson(bodyStr, TokenDto::class.java)
+                            if (tokenDto != null && tokenDto.access_token.isNotBlank()) {
+                                sessionManager.accessToken = tokenDto.access_token
+                                if (tokenDto.refresh_token.isNotBlank()) {
+                                    sessionManager.refreshToken = tokenDto.refresh_token
+                                }
+                                sessionManager.isAuthExpired = false
+                                sessionManager.isServerReachable = true
+                                Log.i(TAG, "Successfully rotated JWT access token via /auth/refresh.")
+                                return true
+                            }
+                        }
+                    } else if (refreshResp.code == 401 || refreshResp.code == 403) {
+                        Log.w(TAG, "Refresh token rejected by server (status ${refreshResp.code}).")
+                        sessionManager.isAuthExpired = true
+                        sessionManager.isServerReachable = true
+                    } else {
+                        Log.w(TAG, "Token refresh returned status ${refreshResp.code}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Token refresh failed (offline): ${e.message}")
+            }
+
+            return false
+        }
+    }
+
+    private fun buildAuthHeaderInterceptor(sessionManager: SessionManager?): Interceptor {
+        return Interceptor { chain ->
+            val original = chain.request()
+            if (sessionManager == null || original.header(RETRY_HEADER) != null) {
+                return@Interceptor chain.proceed(original)
+            }
+            val hasAuthHeader = original.header("Authorization") != null
+            val latestToken = sessionManager.accessToken
+            val request = if (hasAuthHeader && latestToken.isNotBlank()) {
+                original.newBuilder()
+                    .header("Authorization", "Bearer $latestToken")
+                    .build()
+            } else {
+                original
+            }
+            chain.proceed(request)
+        }
+    }
 
     private fun buildTokenAuthenticator(sessionManager: SessionManager?, baseUrl: String): Authenticator {
         return Authenticator { _: Route?, response: Response ->
@@ -47,8 +125,10 @@ object ApiClient {
             }
 
             synchronized(refreshLock) {
-                val currentRefreshToken = sessionManager.refreshToken
-                if (currentRefreshToken.isBlank()) return@Authenticator null
+                if (sessionManager.refreshToken.isBlank()) {
+                    sessionManager.isAuthExpired = true
+                    return@Authenticator null
+                }
 
                 // If another thread already refreshed the token, retry immediately with the updated token
                 val requestAuthHeader = response.request.header("Authorization")
@@ -60,42 +140,11 @@ object ApiClient {
                         .build()
                 }
 
-                try {
-                    val refreshUrl = "${if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"}auth/refresh"
-                    val jsonPayload = gson.toJson(RefreshTokenRequestDto(refresh_token = currentRefreshToken))
-                    val refreshRequest = Request.Builder()
-                        .url(refreshUrl)
-                        .post(jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                if (refreshTokenSynchronously(sessionManager, baseUrl)) {
+                    return@Authenticator response.request.newBuilder()
+                        .header("Authorization", "Bearer ${sessionManager.accessToken}")
+                        .header(RETRY_HEADER, "true")
                         .build()
-
-                    val bareClient = OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.SECONDS)
-                        .readTimeout(10, TimeUnit.SECONDS)
-                        .build()
-
-                    bareClient.newCall(refreshRequest).execute().use { refreshResp ->
-                        if (refreshResp.isSuccessful) {
-                            val bodyStr = refreshResp.body?.string()
-                            if (!bodyStr.isNullOrBlank()) {
-                                val tokenDto = gson.fromJson(bodyStr, TokenDto::class.java)
-                                if (tokenDto != null && tokenDto.access_token.isNotBlank()) {
-                                    sessionManager.accessToken = tokenDto.access_token
-                                    if (tokenDto.refresh_token.isNotBlank()) {
-                                        sessionManager.refreshToken = tokenDto.refresh_token
-                                    }
-                                    Log.i(TAG, "Successfully rotated JWT access token via /auth/refresh.")
-                                    return@Authenticator response.request.newBuilder()
-                                        .header("Authorization", "Bearer ${tokenDto.access_token}")
-                                        .header(RETRY_HEADER, "true")
-                                        .build()
-                                }
-                            }
-                        } else {
-                            Log.w(TAG, "Token refresh returned status ${refreshResp.code}")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Token refresh failed: ${e.message}")
                 }
 
                 null
@@ -105,7 +154,7 @@ object ApiClient {
 
     private fun buildOkHttpClient(sessionManager: SessionManager?, baseUrl: String): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // Never log HTTP bodies containing child screen text or tokens (VULN-04 remediation)
+            // Never log HTTP bodies containing child screen text or tokens (NFR4)
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BASIC
             } else {
@@ -115,11 +164,12 @@ object ApiClient {
         }
 
         return OkHttpClient.Builder()
+            .addInterceptor(buildAuthHeaderInterceptor(sessionManager))
             .addInterceptor(loggingInterceptor)
             .authenticator(buildTokenAuthenticator(sessionManager, baseUrl))
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .writeTimeout(8, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
     }

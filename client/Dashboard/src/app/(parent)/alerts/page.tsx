@@ -15,7 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { normalizeArabicText } from "@/lib/utils";
+import { formatLocalDateTime, normalizeArabicText } from "@/lib/utils";
 
 interface AlertItem {
   id: string;
@@ -48,19 +48,7 @@ const CATEGORY_MAP: Record<string, { label: string; color: string; bgColor: stri
 };
 
 function formatAlertDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleString("en-GB", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatLocalDateTime(dateStr);
 }
 
 export default function AlertsPage() {
@@ -338,7 +326,7 @@ export default function AlertsPage() {
                           تم الحظر فورياً
                         </span>
                       </td>
-                      <td dir="ltr" className="p-4 text-xs font-mono text-gray-500 whitespace-nowrap text-right">
+                      <td dir="rtl" className="p-4 text-xs font-mono text-gray-500 whitespace-nowrap text-right">
                         {formatAlertDate(alert.created_at)}
                       </td>
                     </tr>

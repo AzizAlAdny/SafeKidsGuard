@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material.icons.filled.Warning
@@ -47,10 +48,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sa.safekids.guard.R
 import sa.safekids.guard.data.SessionManager
 import sa.safekids.guard.network.AccessAppealRequestDto
+import sa.safekids.guard.network.ActivityBatchRequestDto
 import sa.safekids.guard.network.ApiClient
 import sa.safekids.guard.network.PairDeviceRequestDto
 import sa.safekids.guard.network.UnpairDeviceRequestDto
@@ -136,6 +140,11 @@ fun ChildAppHomeScreen(
     var serverUrl by remember { mutableStateOf(sessionManager.baseUrl) }
     var showServerConfig by remember { mutableStateOf(false) }
 
+    var isServerOnline by remember { mutableStateOf(sessionManager.isServerReachable) }
+    var isAuthExpired by remember { mutableStateOf(sessionManager.isAuthExpired) }
+    var isReconnecting by remember { mutableStateOf(false) }
+    var queuedEventsCount by remember { mutableIntStateOf(sessionManager.getOfflineActivityCount()) }
+
     var isAccessibilityEnabled by remember {
         mutableStateOf(isAccessibilityServiceEnabled(context))
     }
@@ -143,11 +152,83 @@ fun ChildAppHomeScreen(
         mutableStateOf(isUsageStatsPermissionGranted(context))
     }
 
+    fun performLiveReconnect(showToast: Boolean = false) {
+        if (!sessionManager.isPaired || sessionManager.childId.isBlank()) return
+        isReconnecting = true
+        // Broadcast to wake MonitoringAccessibilityService
+        context.sendBroadcast(
+            Intent(SessionManager.ACTION_FORCE_RECONNECT).setPackage(context.packageName)
+        )
+        scope.launch {
+            try {
+                val synced = withContext(Dispatchers.IO) {
+                    val api = ApiClient.getApiService(context)
+                    var resp = api.getPolicy("Bearer ${sessionManager.accessToken}", sessionManager.childId)
+                    if (resp.code() == 401 && sessionManager.refreshToken.isNotBlank()) {
+                        val refreshed = ApiClient.refreshTokenSynchronously(sessionManager, sessionManager.baseUrl)
+                        if (refreshed) {
+                            resp = api.getPolicy("Bearer ${sessionManager.accessToken}", sessionManager.childId)
+                        }
+                    }
+                    if (resp.isSuccessful && resp.body() != null) {
+                        sessionManager.cachePolicy(resp.body()!!)
+                        val queued = sessionManager.drainOfflineActivities()
+                        if (queued.isNotEmpty()) {
+                            try {
+                                val batchResp = api.logActivityBatch(
+                                    "Bearer ${sessionManager.accessToken}",
+                                    ActivityBatchRequestDto(events = queued)
+                                )
+                                if (!batchResp.isSuccessful) {
+                                    queued.forEach { sessionManager.enqueueOfflineActivity(it) }
+                                }
+                            } catch (_: Exception) {
+                                queued.forEach { sessionManager.enqueueOfflineActivity(it) }
+                            }
+                        }
+                        true
+                    } else if (resp.code() == 401 || resp.code() == 403) {
+                        sessionManager.isServerReachable = true
+                        sessionManager.isAuthExpired = true
+                        false
+                    } else {
+                        sessionManager.isServerReachable = false
+                        false
+                    }
+                }
+                isServerOnline = sessionManager.isServerReachable
+                isAuthExpired = sessionManager.isAuthExpired
+                queuedEventsCount = sessionManager.getOfflineActivityCount()
+                if (showToast) {
+                    val msg = when {
+                        synced -> "تم الاتصال بـ Server ومزامنة السياسات بنجاح ✓"
+                        isAuthExpired -> "انتهت صلاحية الجلسة — يرجى إعادة الاقتران برمز جديد"
+                        else -> "Server غير متصل حالياً — الحماية المحلية نشطة"
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+            } catch (_: Exception) {
+                sessionManager.isServerReachable = false
+                isServerOnline = false
+                queuedEventsCount = sessionManager.getOfflineActivityCount()
+                if (showToast) {
+                    Toast.makeText(context, "تعذر الاتصال بـ Server حالياً — الحماية المحلية نشطة", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                isReconnecting = false
+            }
+        }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
                 isUsageStatsGranted = isUsageStatsPermissionGranted(context)
+                isPaired = sessionManager.isPaired
+                if (sessionManager.isPaired) {
+                    performLiveReconnect(showToast = false)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -371,7 +452,7 @@ fun ChildAppHomeScreen(
                                         errorMessage = "رمز الاقتران غير صحيح أو منتهي الصلاحية"
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "تعذر الاتصال بالخادم. تحقق من الشبكة أو عنوان الخادم."
+                                    errorMessage = "تعذر الاتصال بـ Server. تحقق من الشبكة أو عنوان Server URL."
                                 } finally {
                                     isPairingLoading = false
                                 }
@@ -432,11 +513,91 @@ fun ChildAppHomeScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Text(
-                        text = "الخادم: ${sessionManager.baseUrl}",
+                        text = "Server: ${sessionManager.baseUrl}",
                         fontSize = 11.sp,
                         color = AliceBlue600,
                         modifier = Modifier.padding(top = 6.dp)
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Live Server Connection Status Badge
+                    val statusBgColor = when {
+                        isAuthExpired -> Color(0xFFFFE4E6)
+                        isServerOnline -> Color(0xFFD1FAE5)
+                        else -> Color(0xFFFEF3C7)
+                    }
+                    val statusTextColor = when {
+                        isAuthExpired -> DangerRed
+                        isServerOnline -> Color(0xFF065F46)
+                        else -> Color(0xFF92400E)
+                    }
+                    val statusLabel = when {
+                        isReconnecting -> "جاري فحص الاتصال ومزامنة السياسات..."
+                        isAuthExpired -> "انتهت صلاحية الجلسة — يرجى إعادة الاقتران برمز جديد"
+                        isServerOnline -> "متصل بـ Server الآن — المزامنة التلقائية نشطة ✓"
+                        else -> buildString {
+                            append("Server غير متصل حالياً — الحماية المحلية نشطة ⚠️")
+                            if (queuedEventsCount > 0) {
+                                append(" ($queuedEventsCount حدث بانتظار المزامنة)")
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = statusBgColor,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = statusLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = statusTextColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { performLiveReconnect(showToast = true) },
+                            enabled = !isReconnecting,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Reconnect",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isReconnecting) "جاري الاتصال..." else "إعادة الاتصال والمزامنة",
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        if (isAuthExpired) {
+                            Button(
+                                onClick = {
+                                    sessionManager.clearSession()
+                                    isPaired = false
+                                    isAuthExpired = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("إعادة الاقتران", fontSize = 12.sp)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -526,7 +687,7 @@ fun ChildAppHomeScreen(
                                             Toast.makeText(context, "كلمة مرور ولي الأمر غير صحيحة", Toast.LENGTH_SHORT).show()
                                         }
                                     } catch (_: Exception) {
-                                        Toast.makeText(context, "تعذر التحقق من الخادم", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "تعذر التحقق من Server", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -562,7 +723,7 @@ fun ChildAppHomeScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Server URL / إعدادات اتصال الخادم (${sessionManager.baseUrl})",
+                text = "Server URL / إعدادات اتصال Server (${sessionManager.baseUrl})",
                 fontSize = 12.sp,
                 color = YaleBlue800
             )
@@ -584,27 +745,17 @@ fun ChildAppHomeScreen(
                     text = {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = if (isPaired) {
-                                    "Locked while paired (Unpair with parent password to edit)"
-                                } else {
-                                    "Enter the FastAPI Server URL (English / IPv4):"
-                                },
+                                text = "Enter the FastAPI Server URL (English / IPv4):",
                                 fontSize = 12.sp,
-                                color = if (isPaired) WarningOrange else AliceBlue600,
+                                color = AliceBlue600,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
                             OutlinedTextField(
                                 value = serverUrl,
-                                onValueChange = {
-                                    if (!isPaired) {
-                                        serverUrl = it
-                                    }
-                                },
+                                onValueChange = { serverUrl = it },
                                 label = { Text("Server URL (http://IP:8000/)") },
                                 placeholder = { Text("http://192.168.1.102:8000/") },
-                                enabled = !isPaired,
-                                readOnly = isPaired,
                                 singleLine = true,
                                 textStyle = TextStyle(
                                     fontFamily = FontFamily.Monospace,
@@ -621,35 +772,33 @@ fun ChildAppHomeScreen(
                                 shape = RoundedCornerShape(10.dp)
                             )
 
-                            if (!isPaired) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "Quick Presets:",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = YaleBlue800
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Quick Presets:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = YaleBlue800
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { serverUrl = SessionManager.DEFAULT_BASE_URL },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { serverUrl = SessionManager.DEFAULT_BASE_URL },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        Text("Wi-Fi (192.168.1.102)", fontSize = 11.sp)
-                                    }
-                                    OutlinedButton(
-                                        onClick = { serverUrl = SessionManager.EMULATOR_BASE_URL },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        Text("Emulator (10.0.2.2)", fontSize = 11.sp)
-                                    }
+                                    Text("Wi-Fi (192.168.1.102)", fontSize = 11.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { serverUrl = SessionManager.EMULATOR_BASE_URL },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Emulator (10.0.2.2)", fontSize = 11.sp)
                                 }
                             }
                         }
@@ -657,7 +806,7 @@ fun ChildAppHomeScreen(
                     confirmButton = {
                         Button(
                             onClick = {
-                                if (!isPaired && serverUrl.isNotBlank()) {
+                                if (serverUrl.isNotBlank()) {
                                     val cleaned = serverUrl.trim()
                                     val withScheme = if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) {
                                         cleaned
@@ -671,19 +820,20 @@ fun ChildAppHomeScreen(
                                         "Saved: ${sessionManager.baseUrl}",
                                         Toast.LENGTH_SHORT
                                     ).show()
+                                    if (isPaired) {
+                                        performLiveReconnect(showToast = true)
+                                    }
                                 }
                                 showServerConfig = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = BlueGreen500)
                         ) {
-                            Text(if (isPaired) "Close" else "Save URL")
+                            Text("Save & Reconnect")
                         }
                     },
                     dismissButton = {
-                        if (!isPaired) {
-                            TextButton(onClick = { showServerConfig = false }) {
-                                Text("Cancel")
-                            }
+                        TextButton(onClick = { showServerConfig = false }) {
+                            Text("Cancel")
                         }
                     }
                 )

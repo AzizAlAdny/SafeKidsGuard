@@ -2,8 +2,8 @@
 Pydantic schemas for classification and alerts.
 """
 import uuid
-from datetime import datetime
-from pydantic import BaseModel, Field
+from datetime import UTC, datetime
+from pydantic import BaseModel, Field, field_validator
 
 
 class PredictRequest(BaseModel):
@@ -44,5 +44,12 @@ class AlertResponse(BaseModel):
     review_status: str = "PENDING"
     access_request_reason: str | None = None
     created_at: datetime
+
+    @field_validator("created_at", mode="after")
+    @classmethod
+    def ensure_utc_timezone(cls, v: datetime) -> datetime:
+        if v and v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v
 
     model_config = {"from_attributes": True}

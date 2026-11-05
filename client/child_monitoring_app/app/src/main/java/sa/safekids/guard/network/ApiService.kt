@@ -100,7 +100,20 @@ data class ActivityEventDto(
     val verdict: String
 )
 
+@Keep
+data class ActivityBatchRequestDto(
+    val events: List<ActivityEventDto>
+)
+
+@Keep
+data class HealthResponseDto(
+    val status: String = "ok"
+)
+
 interface ApiService {
+    @GET("health")
+    suspend fun checkHealth(): Response<HealthResponseDto>
+
     @POST("auth/login")
     suspend fun login(@Body body: LoginDto): Response<TokenDto>
 
@@ -138,5 +151,11 @@ interface ApiService {
     suspend fun logActivity(
         @Header("Authorization") token: String,
         @Body event: ActivityEventDto
+    ): Response<Unit>
+
+    @POST("activity/batch")
+    suspend fun logActivityBatch(
+        @Header("Authorization") token: String,
+        @Body batch: ActivityBatchRequestDto
     ): Response<Unit>
 }

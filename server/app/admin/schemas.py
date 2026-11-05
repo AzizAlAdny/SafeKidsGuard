@@ -2,9 +2,9 @@
 Pydantic schemas for the Administrator module (FR10-FR13, UC-A1-UC-A6).
 """
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AdminUserItem(BaseModel):
@@ -16,6 +16,13 @@ class AdminUserItem(BaseModel):
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("created_at", mode="after")
+    @classmethod
+    def ensure_utc_timezone(cls, v: datetime | None) -> datetime | None:
+        if v is not None and v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v
 
 
 class AdminUserUpdateRequest(BaseModel):
@@ -52,6 +59,13 @@ class AdminFlaggedItem(BaseModel):
     review_status: str
     access_request_reason: str | None = None
     created_at: datetime
+
+    @field_validator("created_at", mode="after")
+    @classmethod
+    def ensure_utc_timezone(cls, v: datetime) -> datetime:
+        if v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v
 
 
 class AdminFlaggedReviewRequest(BaseModel):
