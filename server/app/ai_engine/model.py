@@ -5,9 +5,13 @@ Supports both neural Transformers pipelines and high-speed heuristic fallbacks.
 """
 import asyncio
 import logging
+import os
 from typing import Any
 
 from app.core.config import settings
+
+# Prevent HuggingFace Transformers from spawning background safetensors auto-conversion downloads
+os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "1")
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,13 @@ _models_loaded: bool = False
 def _load_transformers_pipeline(model_name: str) -> Any:
     """Synchronous loader for HuggingFace Transformers pipeline."""
     try:
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+        from transformers import (
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+            logging as hf_logging,
+            pipeline,
+        )
+        hf_logging.set_verbosity_error()
         logger.info(f"Loading transformer model: {model_name}...")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
