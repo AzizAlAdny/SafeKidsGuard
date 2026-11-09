@@ -37,7 +37,18 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const requestUrl: string = originalRequest?.url || "";
+    const isAuthRequest =
+      requestUrl.includes("/auth/login") ||
+      requestUrl.includes("/auth/register") ||
+      requestUrl.includes("/auth/refresh");
+
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthRequest
+    ) {
       originalRequest._retry = true;
       if (typeof window !== "undefined") {
         const refreshToken = localStorage.getItem("refresh_token");
@@ -56,9 +67,11 @@ api.interceptors.response.use(
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");
-            window.location.href = "/login";
+            if (window.location.pathname !== "/login") {
+              window.location.href = "/login";
+            }
           }
-        } else {
+        } else if (window.location.pathname !== "/login") {
           window.location.href = "/login";
         }
       }
