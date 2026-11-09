@@ -34,7 +34,7 @@ The dashboard includes **18 verified routes** covering both the Parent portal an
 |---|---|---|
 | `/` | **Landing / Root** | Smart redirection based on user authentication state. |
 | `/login` | **Sign In** | Role-based authentication redirecting parents to `/dashboard` and admins to `/admin`. |
-| `/register` | **Parent Registration** | New parent registration with international phone format validation (E.164). |
+| `/register` | **Parent Registration** | New parent registration with password strength meter, policy checklist, and password confirmation. |
 | `/dashboard` | **Parent Overview** | Real-time safety KPIs, recent threat feed, and paired device summary. |
 | `/alerts` | **Threat & Alerts Feed** | Filterable table of intercepted content, confidence scores, and context snippets. |
 | `/children` | **Child Account Manager** | Add children, issue official 6-digit pairing PINs, and monitor pairing status. |
@@ -77,7 +77,7 @@ client/Dashboard/
 │   ├── app/
 │   │   ├── (auth)/                # Unauthenticated authentication layout
 │   │   │   ├── login/page.tsx     # Role-aware login view
-│   │   │   └── register/page.tsx  # Registration with phone validation
+│   │   │   └── register/page.tsx  # Registration with password policy & strength meter
 │   │   ├── (parent)/              # Parent portal with persistent sidebar & RTL layout
 │   │   │   ├── layout.tsx         # Sidebar, navigation, 4s real-time alert watcher & popup stack
 │   │   │   ├── dashboard/page.tsx # Executive overview cards
@@ -99,7 +99,7 @@ client/Dashboard/
 │   │   └── page.tsx               # Root entrypoint redirector
 │   ├── components/
 │   │   └── ConfirmModal.tsx       # Accessible RTL confirmation dialog component
-│   ├── middleware.ts              # Edge middleware enforcing role-based route access
+│   ├── proxy.ts                   # Next.js 16 route proxy enforcing role-based route access (RBAC)
 │   └── lib/
 │       ├── api.ts                 # Axios instance with dynamic LAN/localhost URL resolution & JWT refresh
 │       ├── auth-store.ts          # Zustand authentication store with cookie synchronization

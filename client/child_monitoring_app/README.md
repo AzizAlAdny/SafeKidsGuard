@@ -116,6 +116,7 @@ client/child_monitoring_app/
 │           │       ├── MainActivity.kt  # Compose UI: 6-digit pairing & status monitor
 │           │       └── theme/           # Color palette and typography definitions
 │           └── res/
+│               ├── mipmap-*/            # Adaptive & legacy Safe Kids Guard launcher icons
 │               ├── values/              # Strings, colors, styles
 │               └── xml/                 # Accessibility service capabilities descriptor
 │       └── test/

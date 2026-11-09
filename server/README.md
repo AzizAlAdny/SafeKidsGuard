@@ -7,7 +7,7 @@
 [![Redis](https://img.shields.io/badge/Redis-Cache-DC382D.svg)](https://redis.io/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-CPU_Optimized-EE4C2C.svg)](https://pytorch.org/)
 [![Notifications](https://img.shields.io/badge/Notifications-FCM_Web_Push-0B518E.svg)](https://firebase.google.com/docs/cloud-messaging)
-[![Tests](https://img.shields.io/badge/Pytest-40%2F40_Passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Tests](https://img.shields.io/badge/Pytest-50%2F50_Passed-brightgreen.svg)](https://docs.pytest.org/)
 
 **Safe Kids Guard API** is an intelligent parental-control backend built with **FastAPI**, designed to protect children from digital threats and harmful content in Arabic digital environments. It serves as the core intelligence hub coordinating the three-tier system (Android child accessibility service + Parent web dashboard + AI moderation core).
 
@@ -37,8 +37,8 @@
   * Repeated character compression (Elongation Reduction).
   * Arabizi / Leetspeak translation (e.g., converting `7mar` to `حمار` while preserving pure numbers like `2026`).
 * **Dual Ensemble Architecture:**
-  * **AraBERT v2 (`aubmindlab/bert-base-arabertv2`):** Specialized for Modern Standard Arabic (MSA).
-  * **CAMeLBERT (`CAMeL-Lab/bert-base-arabic-camelbert-da` / `hossam87/bert-base-arabic-hate-speech`):** Tuned for regional spoken dialects (Gulf, Egyptian, Levantine) and hate speech detection.
+  * **AraBERT v2 (`aubmindlab/bert-base-arabertv02`):** Specialized for Modern Standard Arabic (MSA).
+  * **CAMeLBERT (`CAMeL-Lab/bert-base-arabic-camelbert-da`):** Tuned for regional spoken dialects (Gulf, Egyptian, Levantine) and dialectal threat detection.
   * Fast-Path regex heuristics for explicit threats with sub-100ms response times.
 * **Five Classification Categories:**
   * `SAFE`: Benign and appropriate content.
@@ -164,8 +164,9 @@ server/
 ├── alembic/                     # Database schema migration files
 │   ├── versions/                # Ordered revision migration scripts
 │   └── env.py                   # Alembic environment and model metadata registry
-├── tests/                       # Comprehensive automated test suite (40 tests)
+├── tests/                       # Comprehensive automated test suite (50 tests)
 │   ├── conftest.py              # Test harness and in-memory database isolation
+│   ├── test_unit_suite.py       # Unit test suite (UT-01 to UT-10)
 │   ├── test_activity.py         # Activity logging and policy exception tests
 │   ├── test_auth.py             # Registration, login, rate limiting, and PIN pairing tests
 │   ├── test_classification.py   # Classification accuracy and alert trigger tests
@@ -308,7 +309,8 @@ The server includes an automated test suite executed against isolated in-memory 
 python -m pytest tests/ -v
 ```
 
-### Test Suite Summary (40 / 40 Tests Passing, 100%):
+### Test Suite Summary (50 / 50 Tests Passing, 100%):
+* `tests/test_unit_suite.py` (10 tests): Dedicated unit test suite (`UT-01`–`UT-10`) covering password hashing & verification, JWT validation, Arabic preprocessing, Arabizi normalization, safe & inappropriate content classification, dialect detection, backend policy evaluation, and Android local policy evaluation.
 * `tests/test_auth.py` (11 tests): User registration, password verification, JWT issuance and refresh, international E.164 & Saudi phone formatting, and SlowAPI rate limiting.
 * `tests/test_preprocessing.py` (6 tests): Arabic cleaning, HTML tag stripping, Tashkeel/Tatweel removal, Arabizi transliteration, and repetition reduction.
 * `tests/test_classification.py` (6 tests): Classification accuracy across five categories and automated alert triggering.
